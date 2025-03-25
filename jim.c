@@ -9,6 +9,14 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 #define JIM_VERSION "0.0.1"
+enum editorKey {
+	ARROW_LEFT = 1000,
+	ARROW_RIGHT,
+	ARROW_UP,
+	ARROW_DOWN,
+	PAGE_UP,
+	PAGE_DOWN
+}
 
 struct editorConfig {
 	int cx, cy;
@@ -46,13 +54,44 @@ void enableRawMode() {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char editorReadKey() {
+int editorReadKey() {
 	int nread;
 	char c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN) die("read"); //To allow for Cygwin we check for EAGAIN
 	}
-	return c;
+
+	if (c == '\x1b') {
+		char seq[3];
+		if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
+		if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
+
+		if (seq[0] == '[') {
+			if (seq[1] >= '0' && seq[1] <= '9') {
+				if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+				if (seq[2] == '~') {
+					switch (seq[1]) {
+						case '5': return PAGE_UP;
+						case '6': return PAGE_DOWN;
+					}
+				}
+			}
+			else {
+				switch (seq[1]) {
+					case 'A': return ARROW_UP;
+					case 'B': return ARROW_DOWN;
+					case 'C': return ARROW_RIGHT;
+					case 'D': return ARROW_LEFT;
+		
+				}
+			}
+		}
+
+		return '\x1b';
+	}
+	else {
+		return c;
+	}
 }
 
 int getCursorPosition(int *rows, int* cols) {
@@ -91,7 +130,7 @@ int getWindowSize(int* rows, int* cols) {
 struct abuf {
 	char *b;
 	int len;
-}
+};
 
 #define ABUF_INIT {NULL, 0}
 
@@ -109,7 +148,7 @@ void abFree(struct abuf *ab) {
 
 void editorDrawRows(struct abuf* ab) {
 	for (int y = 0; y < E.screenrows; y++) {
-		abAppend(ab, "~", 1);i
+		abAppend(ab, "~", 1);
 		abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
 		if (y < E.screenrows - 1) abAppend(ab, "\r\n", 2);
 	}
@@ -123,20 +162,52 @@ void editorRefreshScreen() {
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy+1, E.cx + 1); //Add one to deal with terminal cursor indexing
 	abAppend(&ab, buf, strlen(buf));
-	abAppend(&ab, "\x1b[?25h", 6) //View cursor
+	abAppend(&ab, "\x1b[?25h", 6); //View cursor
 
 	write(STDOUT_FILENO, ab.b, ab.len);
 	abFree(&ab);
 }
 
+void editorMoveCursor(int key) {
+	switch (key) {
+		case ARROW_LEFT:
+			if (E.cx != 0) E.cx--;
+			break;
+		case ARROW_RIGHT:
+			if (E.cx != E.screencols - 1) E.cx++;
+			break;
+		case ARROW_UP:
+			if (E.cy != 0) E.cy--;
+			break;
+		case ARROW_DOWN:
+			if (E.cy != E.screenrows - 1) E.cy++;
+			break;
+	}
+}
+
 void editorProcessKeypress() {
-	char c = editorReadKey();
+	int c = editorReadKey();
 
 	switch(c) {
 		case CTRL_KEY('q'):
 			write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on exit
 			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
+			break;
+		
+		case PAGE_UP:
+		case PAGE_DOWN: { //Need scope to declare variable
+			int times = E.screenrows;
+			while (times--)
+				editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+			}
+			break;
+		
+		case ARROW_UP:
+		case ARROW_DOWN:
+		case ARROW_LEFT:
+		case ARROW_RIGHT:
+			editorMoveCursor(c);
 			break;
 	}
 }
