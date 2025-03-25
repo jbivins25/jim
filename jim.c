@@ -5,10 +5,15 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <string.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define JIM_VERSION "0.0.1"
 
 struct editorConfig {
+	int cx, cy;
+	int screenrows;
+	int screencols;
 	struct termios orig_termios;
 };
 
@@ -50,18 +55,78 @@ char editorReadKey() {
 	return c;
 }
 
-void editorDrawRows() {
-	for (int y = 0; y < ; y++) {
-		write(STDOUT_FILENO, "~\r", 2);
-		if (y < - 1) write(STDOUT_FILENO, "\n", 1);
+int getCursorPosition(int *rows, int* cols) {
+	char buf[32];
+	unsigned int i = 0;
+
+	if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) return -1; //Get escape sequence for window size
+
+	while (i < sizeof(buf) -1) {
+		if (read(STDIN_FILENO, &buf[i], 1) != 1) break;
+		if (buf[i] == 'R') break;
+		i++;
+	}
+	buf[i] = '\0';
+
+	if (buf[0] != '\x1b' || buf[1] != '[') return -1;
+	if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) return -1;
+
+	return 0;
+}
+
+int getWindowSize(int* rows, int* cols) {
+	struct winsize ws;
+
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+		if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1; //Move cursor to the right-most position (C) and move to the bottom-most position (B)
+		return getCursorPosition(rows, cols);
+	}
+	else {
+		*cols = ws.ws_col;
+		*rows = ws.ws_row;
+		return 0;
+	}
+}
+
+struct abuf {
+	char *b;
+	int len;
+}
+
+#define ABUF_INIT {NULL, 0}
+
+void abAppend(struct abuf *ab, const char *s, int len) {
+	char *new = realloc(ab->b, ab->len + len); //Dynamic memory buffer
+
+	memcpy(&new[ab->len], s, len); 
+	ab->b = new;
+	ab->len += len;
+}
+
+void abFree(struct abuf *ab) {
+	free(ab->b);
+}
+
+void editorDrawRows(struct abuf* ab) {
+	for (int y = 0; y < E.screenrows; y++) {
+		abAppend(ab, "~", 1);i
+		abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
+		if (y < E.screenrows - 1) abAppend(ab, "\r\n", 2);
 	}
 }
 
 void editorRefreshScreen() {
-	write(STDOUT_FILENO, "\x1b[2J", 4); //Using the escape character (\x1b) we clear entire screen
-	write(STDOUT_FILENO, "\x1b[H", 3); //Positions cursor at top left
-	editorDrawRos();
-	write(STDOUT_FILENO,"\x1b[H",3);
+	struct abuf ab = ABUF_INIT;
+	abAppend(&ab, "\x1b[?25l", 6); //Hide cursor
+	abAppend(&ab, "\x1b[H", 3); //Positions cursor at top left
+	editorDrawRows(&ab);
+	char buf[32];
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy+1, E.cx + 1); //Add one to deal with terminal cursor indexing
+	abAppend(&ab, buf, strlen(buf));
+	abAppend(&ab, "\x1b[?25h", 6) //View cursor
+
+	write(STDOUT_FILENO, ab.b, ab.len);
+	abFree(&ab);
 }
 
 void editorProcessKeypress() {
@@ -76,10 +141,16 @@ void editorProcessKeypress() {
 	}
 }
 
+void initEditor() {
+	E.cx = 0;
+	E.cy = 0;
+	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+}
+
 int main() {
 	enableRawMode();
+	initEditor();
 
-	char c;
 	while (1) {
 		editorRefreshScreen();
 		editorProcessKeypress();
