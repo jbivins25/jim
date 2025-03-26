@@ -1,0 +1,15 @@
+#include <stdlib.h>
+#include <string.h>
+#include "ab.h"
+
+void abAppend(struct abuf *ab, const char *s, int len) {
+	char *new = realloc(ab->b, ab->len + len); //Dynamic memory buffer
+
+	memcpy(&new[ab->len], s, len); 
+	ab->b = new;
+	ab->len += len;
+}
+
+void abFree(struct abuf *ab) {	
+	free(ab->b);
+}
