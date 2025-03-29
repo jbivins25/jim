@@ -25,8 +25,6 @@ void editorHghlt(int c) {
 		}
 	    }
 	    size += 1;
-	    FILE* test = fopen("test.txt","w");
-	    fprintf(test, "Malloc size: %ld\n", size);
 	    E.cpbuffer = malloc(size);
 	    unsigned int ind = 0;
 	    for (int i = E.selected[0]; i <=E.selected[1]; i++) {
@@ -57,10 +55,11 @@ void editorHghlt(int c) {
 			}
 		}
 	    }
-	    fprintf(test,"Ind is %d\n", ind);
 	    E.cpbuffer[ind] = '\0';
 	    }
-	    editorSetStatusMessage("Copied!");
+	    editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
+	    E.mode = NORMAL;
+	    E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
             break; //Todo: copy
         case CTRL_KEY('v'):
             break; //Todo: paste
@@ -210,6 +209,15 @@ void editorHghlt(int c) {
             }
             break;
 	}
+}
+
+void editorMoveLine() {
+	char* query = editorPrompt("Line number: %s", NULL);
+	int line = atoi(query);
+	if (line >= 0 && line <= E.numrows) {
+		E.cx = 0;
+		E.cy = line;
+	}	
 }
 
 void editorInsertChar(int c) {

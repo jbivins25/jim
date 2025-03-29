@@ -432,6 +432,11 @@ void editorProcessKeypress() {
 			if (E.mode == SELECT) break;
 			editorFind();
 			break;
+
+		case CTRL_KEY('l'):
+			if (E.mode == SELECT) break;
+			editorMoveLine();
+			break;
             
 		case HOME_KEY:
 			if (E.mode == SELECT) editorHghlt(c);
@@ -479,7 +484,6 @@ void editorProcessKeypress() {
 			if (E.mode == SELECT) editorHghlt(c);
 			break;
 
-		case CTRL_KEY('l'):
 		case '\x1b':
 			if (E.mode == SELECT) editorHghlt(c);
 			break;
