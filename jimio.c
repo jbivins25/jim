@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 void editorScroll() {
-	E.rx = 0;
 	if (E.cy < E.numrows) {
 		E.rx = editorRowCxToRx(&E.row[E.cy], E.cx);
 	}
@@ -39,12 +38,24 @@ void editorDrawRows(struct abuf* ab) {
 			abAppend(ab, "~", 1);
 		}
 		else {
+			if (filerow > E.selected[0] && filerow < E.selected[1]) abAppend(ab, "\x1b[47m", 5); //If between the start/end automatically highlight everything
+			if (filerow == E.selected[1] && E.selected[0] != E.selected[1] && E.coloff <= editorRowCxToRx(&E.row[filerow],E.selected[3])) abAppend(ab, "\x1b[47m", 5); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 			int len = E.row[filerow].rsize - E.coloff;
 			if (len < 0) len = 0;
 			if (len > E.screencols) len = E.screencols;
-			abAppend(ab, &E.row[filerow].render[E.coloff], len);
+			for (int j = 0; j < len; j++) {
+				if (filerow == E.selected[0] && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[2])) {
+					abAppend(ab, "\x1b[47m", 5);
+				}
+				abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
+				if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
+					abAppend(ab,"\x1b[49m", 5);
+				}
+			}
 		}
 
+		abAppend(ab,"\x1b[39m",5); //Sets default text color
+		abAppend(ab,"\x1b[49m",5); //Sets default background color
 		abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
 		abAppend(ab, "\r\n", 2);
 	}
@@ -54,7 +65,7 @@ void editorDrawStatusBar(struct abuf *ab) {
 	abAppend(ab, "\x1b[7m", 4); //Print with inverted colors
 	char status[80], rstatus[80];
 	int len = snprintf(status, sizeof(status), "%.20s - %d lines %s", E.filename ? E.filename : "[No name]", E.numrows, E.dirty ? "(modified)" : "");
-	int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d", E.cy + 1, E.numrows);
+	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", E.mode ? "Select" : "Normal", E.cy + 1, E.numrows);
 	if (len > E.screencols) len = E.screencols;
 	abAppend(ab, status, len);
 	while (len < E.screencols) {
@@ -151,16 +162,28 @@ void editorMoveCursor(int key) {
 			if (E.cx != 0) {
 				E.cx--;
 			}
-			else if ( E.cy > 0 ) {
+			else if ( E.cy > 0 && E.mode == NORMAL ) {
 				E.cy--;
 				E.cx = E.row[E.cy].size;
 			}
+			else if ( E.cy > 0 && E.mode == SELECT ) {
+				E.cy--;
+				E.cx = E.row[E.cy].size-1;
+				if (E.cx < 0) E.cx = 0;
+			}
 			break;
 		case ARROW_RIGHT:
-			if (row && E.cx < row->size) {
+			if (row && E.cx < row->size && E.mode == NORMAL) {
 				E.cx++;
 			}
-			else if (row && E.cx == row->size) {
+			else if (row && E.cx < row->size-1 && E.mode == SELECT) {
+				E.cx++;
+			}
+			else if (row && E.cx == row->size && E.mode == NORMAL) {
+				E.cy++;
+				E.cx = 0;
+			}
+			else if (row && (E.cx == row->size-1 || (E.cx == 0 && E.cx == row->size)) && E.mode == SELECT) {
 				E.cy++;
 				E.cx = 0;
 			}
@@ -171,15 +194,24 @@ void editorMoveCursor(int key) {
 			}
 			break;
 		case ARROW_DOWN:
-			if (E.cy < E.numrows) {
+			if (E.cy < E.numrows && E.mode == NORMAL) {
+				E.cy++;
+			}
+			else if (E.cy < E.numrows-1 && E.mode == SELECT) {
 				E.cy++;
 			}
 			break;
 	}
 	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	int rowlen = row ? row->size : 0;
-	if (E.cx > rowlen) { //Snap cursor back to end of line
+	if (E.cx > rowlen && E.mode == NORMAL) { //Snap cursor back to end of line
 		E.cx = rowlen;
+	}
+	else if (E.cx > rowlen && E.mode == SELECT) {
+		if (rowlen > 0) {
+			E.cx = rowlen-1;
+		}
+		else E.cx = rowlen;
 	}
 }
 
@@ -189,10 +221,12 @@ void editorProcessKeypress() {
 
 	switch(c) {
 		case '\r':
+			if (E.mode == SELECT) editorHghlt(c);
 			editorInsertNewline();
 			break;
 
 		case CTRL_KEY('q'):
+			if (E.mode == SELECT) editorHghlt(c);
 			if (E.dirty && quit_times > 0) {
 				editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
 				quit_times--;
@@ -206,28 +240,222 @@ void editorProcessKeypress() {
 		case CTRL_KEY('s'):
 			editorSave();
 			break;
-		
+
+		case CTRL_KEY('w'):
+			if (E.mode == SELECT) break;
+			E.mode = SELECT;
+			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
+			for (int i = 0; i < 4; i++) {
+				if (i == 0 || i == 1)  E.selected[i] = E.cy;
+				else E.selected[i] = E.cx;
+			}
+			break;
+
+		case CTRL_KEY('z'):
+			break; //Todo: undo
+
+		case CTRL_KEY('c'):
+			if (E.mode == SELECT) editorHghlt(c);
+			break; //Todo: copy
+
+		case CTRL_KEY('v'):
+			if (E.cpbuffer == NULL) break;
+			{
+				size_t size = 0;
+				while (E.cpbuffer[size] != '\0') {
+					editorInsertChar(E.cpbuffer[size++]);
+					if (E.cpbuffer[size] == '\r') {
+						editorInsertNewline();
+						size++;
+					}
+				}
+			}
+			break;
+
+		case CTRL_KEY('a'):
+			if (E.mode == NORMAL) E.mode = SELECT;
+			E.cx = 0;
+			E.cy = 0;
+			E.selected[0] = E.selected[2] = E.selected[3] = 0;
+			E.selected[1] = E.numrows-1;
+			break;
+
+		case CTRL_KEY('p'): {
+				if (E.mode == SELECT) editorHghlt(c);
+				char init = E.row[E.cy].chars[E.cx];
+				int stack = 1;
+				char charStack = 0;
+				char prevChar = 0;
+				switch (init) {
+					case '(':
+						while (stack > 0) {
+							E.cx++;
+							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = 0;
+							}
+							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+							if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+
+					case ')':
+						while (stack != 0) {
+							E.cx--;
+							if (E.cx < 0 && E.cy > 0) {
+								while (--E.cy > 0 && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = E.row[E.cy].size-1;
+							}
+							else if (E.cy == 0 && E.cx == 0) {
+								E.cx = 0;
+								break;
+							}
+							if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+
+					case '[':
+						while (stack != 0) {
+							E.cx++;
+							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = 0;
+							}
+							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+							if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+
+					case ']':
+						while (stack != 0) {
+							E.cx--;
+							if (E.cx < 0 && E.cy > 0) {
+								while (--E.cy > 0 && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = E.row[E.cy].size-1;
+							}
+							else if (E.cy == 0 && E.cx == 0) {
+								E.cx = 0;
+								break;
+							}
+							if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+
+					case '{':
+						while (stack != 0) {
+							E.cx++;
+							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = 0;
+							}
+							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+							if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+						
+					case '}':
+						while (stack != 0) {
+							E.cx--;
+							if (E.cx < 0 && E.cy > 0) {
+								while (--E.cy > 0 && E.row[E.cy].size == 0);
+								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+								E.cx = E.row[E.cy].size-1;
+							}
+							else if (E.cy == 0 && E.cx == 0) {
+								E.cx = 0;
+								break;
+							}
+							if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack--;
+							else if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack++;
+							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+								charStack = 1;
+								prevChar = E.row[E.cy].chars[E.cx];
+							}
+							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
+								charStack = prevChar = 0;
+							}
+						}
+						break;
+
+					default:
+						break;
+				}
+				break;
+			}
+
+		case CTRL_KEY('f'):
+			if (E.mode == SELECT) break;
+			editorFind();
+			break;
+            
 		case HOME_KEY:
+			if (E.mode == SELECT) editorHghlt(c);
 			E.cx = 0;
 			break;
 
-		case CTRL_KEY('f'):
-			editorFind();
-			break;
-
 		case END_KEY:
-			if (E.cy < E.numrows) E.cx = E.row[E.cy].size;
+			if (E.cy < E.numrows) {
+				if (E.mode == SELECT) editorHghlt(c);
+				E.cx = E.row[E.cy].size;
+			}
 			break;
 
 		case BACKSPACE:
 		case CTRL_KEY('h'):
 		case DEL_KEY:
+			if (E.mode == SELECT) editorHghlt(c);
 			if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
 			editorDelChar();
 			break;
 
 		case PAGE_UP:
-		case PAGE_DOWN: 
+		case PAGE_DOWN:
+			if (E.mode == SELECT) break; 
 			{ //Need local scope to declare variable
 				if (c == PAGE_UP) {
 					E.cy = E.rowoff;
@@ -248,13 +476,16 @@ void editorProcessKeypress() {
 		case ARROW_LEFT:
 		case ARROW_RIGHT:
 			editorMoveCursor(c);
+			if (E.mode == SELECT) editorHghlt(c);
 			break;
 
 		case CTRL_KEY('l'):
 		case '\x1b':
+			if (E.mode == SELECT) editorHghlt(c);
 			break;
 
 		default:
+			if (E.mode == SELECT) break;
 			editorInsertChar(c);
 			break;
 	}

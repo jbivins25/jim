@@ -25,11 +25,21 @@ enum editorKey {
 	PAGE_DOWN
 };
 
+enum styleType {
+	NORM = 0,
+	HGHLT
+};
+
+enum modeType {
+	NORMAL = 0,
+	SELECT
+};
+
 typedef struct erow {
 	int size;
 	int rsize;
-	char *chars;
-	char *render;
+	char* chars;
+	char* render;
 } erow;
 
 struct editorConfig {
@@ -40,8 +50,11 @@ struct editorConfig {
 	int screenrows;
 	int screencols;
 	int numrows;
+	int selected[4];
+	char* cpbuffer;
 	erow *row;
 	int dirty;
+	int mode;
 	char *filename;
 	char statusmsg[80];
 	time_t statusmsg_time;

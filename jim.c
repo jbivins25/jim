@@ -12,7 +12,8 @@ void freeEditor() {
 		editorFreeRow(&E.row[i]);
 	}
 	free(E.row);	
-	free(E.filename);	
+	free(E.filename);
+	free(E.cpbuffer);	
 }
 
 void initEditor() {
@@ -22,8 +23,13 @@ void initEditor() {
 	E.rowoff = 0;
 	E.numrows = 0;
 	E.coloff = 0;
+	for (int i = 0; i < 4; i++) {
+		E.selected[i] = -1;
+	}
 	E.row = NULL;
 	E.dirty = 0;
+	E.mode = NORMAL;
+	E.cpbuffer = NULL;
 	E.filename = NULL;
 	E.statusmsg[0] = '\0';
 	E.statusmsg_time = 0;

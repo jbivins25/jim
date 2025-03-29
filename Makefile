@@ -12,7 +12,7 @@ jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o
 ab.o: ab.c ab.h
 	$(CC) $(CFLAGS) -c ab.c
 
-editor.o: editor.c editor.h data.h row.h
+editor.o: editor.c editor.h data.h row.h jimio.h
 	$(CC) $(CFLAGS) -c editor.c
 
 fileio.o: fileio.c fileio.h data.h jimio.h row.h

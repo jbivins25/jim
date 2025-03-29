@@ -6,6 +6,7 @@
 
 int editorRowCxToRx(erow* row, int cx);
 int editorRowRxToCx(erow* row, int rx);
+void editorHghltRow(erow *row, int start, int end);
 void editorUpdateRow(erow* row);
 void editorInsertRow(int at, char* s, size_t len);
 void editorFreeRow(erow* row);

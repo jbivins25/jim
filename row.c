@@ -30,7 +30,7 @@ void editorUpdateRow(erow *row) {
 		if (row->chars[j] == '\t') tabs++;
 	}
 	free(row->render);
-	row->render = malloc(row->size + tabs*(JIM_TAB_STOP - 1) + 1);
+	row->render = malloc(row->size + tabs*(JIM_TAB_STOP - 1) + 1);	
 	int idx = 0;
 	for (j = 0; j < row->size; j++) {
 		if (row->chars[j] == '\t') {
