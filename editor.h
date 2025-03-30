@@ -3,6 +3,8 @@
 
 void editorHghlt(int c);
 void editorMoveLine();
+void editorPaste();
+void editorDelSelect();
 void editorInsertChar(int c);
 void editorInsertNewline();
 void editorDelChar();

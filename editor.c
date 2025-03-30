@@ -60,25 +60,23 @@ void editorHghlt(int c) {
 	    editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
 	    E.mode = NORMAL;
 	    E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
-            break; //Todo: copy
+            break;
+
         case CTRL_KEY('v'):
-            break; //Todo: paste
+	    editorDelSelect();
+            break;
+
         case CTRL_KEY('f'):
 	    break;
             
         case HOME_KEY:
-            
             break;
             
-        case END_KEY:
-            
+        case END_KEY:            
             break;
         
         case '\r':
         case CTRL_KEY('q'):
-        case BACKSPACE:
-        case CTRL_KEY('h'):
-        case DEL_KEY:
         case CTRL_KEY('l'):
         case '\x1b': {
             editorSetStatusMessage("E.selected: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]); }
@@ -88,6 +86,14 @@ void editorHghlt(int c) {
             E.mode = NORMAL;
             break;
             
+	case BACKSPACE:
+        case CTRL_KEY('h'):
+        case DEL_KEY:
+		editorDelSelect();
+		E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
+		E.mode = NORMAL;
+		break;
+
         case PAGE_UP:
         case PAGE_DOWN:
             break;
@@ -218,6 +224,49 @@ void editorMoveLine() {
 		E.cx = 0;
 		E.cy = line;
 	}	
+}
+
+void editorPaste() {
+	size_t size = 0;
+	while (E.cpbuffer[size] != '\0') {
+		if (E.cy == E.numrows) {
+			editorInsertRow(E.numrows,"",0);
+		}
+		editorRowInsertChar(&E.row[E.cy], E.cx, E.cpbuffer[size++]);
+		E.cx++;
+		if (E.cpbuffer[size] == '\r') {
+			editorInsertNewline();
+			size++;
+		}
+	}	
+}
+
+void editorDelSelect() {
+	E.cy = E.selected[0];
+	E.cx = E.selected[2];
+	int init_row_size = E.row[E.cy].size;
+	if (E.selected[0] != E.selected[1] && E.row[E.selected[1]].size-1 == E.selected[3]) editorDelRow(E.selected[0]+1);
+	else if (E.selected[0] != E.selected[1]) {
+		for ( int i = E.selected[3]; i >= 0; i-- ) {
+			editorRowDelChar(&E.row[E.selected[0]+1], i);
+		}
+		erow* row = &E.row[E.selected[1]];
+		editorRowAppendString(&E.row[E.selected[0]], row->chars, row->size);
+		editorDelRow(E.selected[1]);
+	}
+	for ( int i = E.selected[1]-1; i > E.selected[0]; i-- ) {
+		editorDelRow(i);
+	}
+	if (E.selected[0] == E.selected[1]) {
+		for ( int i = E.selected[3]; i >= E.selected[2]; i-- ) {
+			editorRowDelChar(&E.row[E.selected[0]], i);
+		}
+	}
+	else {
+		for ( int i = init_row_size-1; i >= E.selected[2]; i--) {
+			editorRowDelChar(&E.row[E.selected[0]], i);
+		}
+	}
 }
 
 void editorInsertChar(int c) {

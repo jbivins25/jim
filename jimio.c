@@ -260,16 +260,8 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('v'):
 			if (E.cpbuffer == NULL) break;
-			{
-				size_t size = 0;
-				while (E.cpbuffer[size] != '\0') {
-					editorInsertChar(E.cpbuffer[size++]);
-					if (E.cpbuffer[size] == '\r') {
-						editorInsertNewline();
-						size++;
-					}
-				}
-			}
+			if (E.mode == SELECT) editorDelSelect();
+			editorPaste();
 			break;
 
 		case CTRL_KEY('a'):
@@ -453,7 +445,7 @@ void editorProcessKeypress() {
 		case BACKSPACE:
 		case CTRL_KEY('h'):
 		case DEL_KEY:
-			if (E.mode == SELECT) editorHghlt(c);
+			if (E.mode == SELECT) {editorHghlt(c); break;}
 			if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
 			editorDelChar();
 			break;
