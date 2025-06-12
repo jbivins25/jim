@@ -3,6 +3,7 @@
 #include "fileio.h"
 #include "jimio.h"
 #include "find.h"
+#include "command.h"
 #include "row.h"
 #include "terminal.h"
 #include <stdlib.h>
@@ -213,10 +214,12 @@ void editorMoveCursor(int key) {
 		}
 		else E.cx = rowlen;
 	}
+	E.rx = row ? editorRowCxToRx(row, E.cx) : 0;
+	editorSetStatusMessage("X: %d, Y: %d", E.cx, E.cy);
 }
 
 void editorProcessKeypress() {
-	static int quit_times = KILO_QUIT_TIMES;
+	static int quit_times = JIM_QUIT_TIMES;
 	int c = editorReadKey();
 
 	switch(c) {
@@ -242,7 +245,7 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('w'):
-			if (E.mode == SELECT) break;
+			if (E.mode == SELECT) {editorHghlt(c); break;}
 			E.mode = SELECT;
 			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
 			for (int i = 0; i < 4; i++) {
@@ -260,7 +263,10 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('v'):
 			if (E.cpbuffer == NULL) break;
-			if (E.mode == SELECT) editorDelSelect();
+			if (E.mode == SELECT) {
+				editorDelSelect();
+				exitSelect();
+			}
 			editorPaste();
 			break;
 
@@ -478,6 +484,7 @@ void editorProcessKeypress() {
 
 		case '\x1b':
 			if (E.mode == SELECT) editorHghlt(c);
+			else editorCommand();
 			break;
 
 		default:
@@ -485,5 +492,5 @@ void editorProcessKeypress() {
 			editorInsertChar(c);
 			break;
 	}
-	quit_times = KILO_QUIT_TIMES;
+	quit_times = JIM_QUIT_TIMES;
 }

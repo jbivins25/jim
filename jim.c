@@ -4,6 +4,7 @@
 #include "jimio.h"
 #include "fileio.h"
 #include <unistd.h>
+#include <signal.h>
 
 struct editorConfig E;
 
@@ -14,6 +15,7 @@ void freeEditor() {
 	free(E.row);	
 	free(E.filename);
 	free(E.cpbuffer);	
+	write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
 void initEditor() {
@@ -35,12 +37,23 @@ void initEditor() {
 	E.statusmsg_time = 0;
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 	E.screenrows -= 2;
+	write(STDOUT_FILENO, "\x1b[?1049h", 8);
+}
+
+static void win_sighandler(int sig) {
+	if (SIGWINCH == sig) {
+		write(STDOUT_FILENO, "\x1b[2J", 4);
+		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+		E.screenrows -= 2;
+		editorRefreshScreen();
+	}
 }
 
 int main(int argc, char *argv[]) {
 	enableRawMode();
 	initEditor();
 	atexit(freeEditor);
+	signal(SIGWINCH, win_sighandler);
 	write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on start
 	write(STDOUT_FILENO, "\x1b[H", 3);
 	if (argc >= 2) {

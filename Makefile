@@ -3,14 +3,17 @@ CFLAGS=-ggdb -Wall -Wextra -pedantic -std=c99
 
 local: jim_loc
 
-jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o
-	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o -o jim
+jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o
+	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o -o jim
 
-jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o
-	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o -o ~/scripts/jim
+jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o
+	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o -o ~/scripts/jim
 
 ab.o: ab.c ab.h
 	$(CC) $(CFLAGS) -c ab.c
+
+command.o: command.c command.h
+	$(CC) $(CFLAGS) -c command.c
 
 editor.o: editor.c editor.h data.h row.h jimio.h
 	$(CC) $(CFLAGS) -c editor.c

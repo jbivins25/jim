@@ -5,6 +5,11 @@
 #include <string.h>
 #include <stdio.h>
 
+void exitSelect() {
+	E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
+	E.mode = NORMAL;	
+}
+
 void editorHghlt(int c) {
 	switch (c) {
         case CTRL_KEY('c'): {
@@ -48,6 +53,7 @@ void editorHghlt(int c) {
 					E.cpbuffer[ind++] = '\r';
 				}
 			}
+			if (E.row[i].size == 0) E.cpbuffer[ind++] = '\r';
 		} 
 		else {
 			for (int j = 0; j <= E.selected[3]; j++) {
@@ -58,12 +64,15 @@ void editorHghlt(int c) {
 	    E.cpbuffer[ind] = '\0';
 	    }
 	    editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
-	    E.mode = NORMAL;
-	    E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
             break;
 
-        case CTRL_KEY('v'):
-	    editorDelSelect();
+        case '\r':
+	case CTRL_KEY('w'):
+        case CTRL_KEY('q'):
+        case CTRL_KEY('l'):
+        case '\x1b': 
+            //{ editorSetStatusMessage("E.selected: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]); }
+	    exitSelect();
             break;
 
         case CTRL_KEY('f'):
@@ -74,24 +83,12 @@ void editorHghlt(int c) {
             
         case END_KEY:            
             break;
-        
-        case '\r':
-        case CTRL_KEY('q'):
-        case CTRL_KEY('l'):
-        case '\x1b': {
-            editorSetStatusMessage("E.selected: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]); }
-	    for ( int i = 0; i < 4; i++ ) {
-                E.selected[i] = -1;
-            }
-            E.mode = NORMAL;
-            break;
             
 	case BACKSPACE:
         case CTRL_KEY('h'):
         case DEL_KEY:
 		editorDelSelect();
-		E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
-		E.mode = NORMAL;
+		exitSelect();
 		break;
 
         case PAGE_UP:
@@ -234,7 +231,7 @@ void editorPaste() {
 		}
 		editorRowInsertChar(&E.row[E.cy], E.cx, E.cpbuffer[size++]);
 		E.cx++;
-		if (E.cpbuffer[size] == '\r') {
+		while (E.cpbuffer[size] == '\r') {
 			editorInsertNewline();
 			size++;
 		}
