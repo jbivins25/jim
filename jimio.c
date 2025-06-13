@@ -215,7 +215,6 @@ void editorMoveCursor(int key) {
 		else E.cx = rowlen;
 	}
 	E.rx = row ? editorRowCxToRx(row, E.cx) : 0;
-	editorSetStatusMessage("X: %d, Y: %d", E.cx, E.cy);
 }
 
 void editorProcessKeypress() {
@@ -434,6 +433,12 @@ void editorProcessKeypress() {
 		case CTRL_KEY('l'):
 			if (E.mode == SELECT) break;
 			editorMoveLine();
+			break;
+
+		case CTRL_KEY('t'):
+			break;
+
+		case CTRL_KEY('o'):
 			break;
             
 		case HOME_KEY:
