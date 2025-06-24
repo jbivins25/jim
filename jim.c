@@ -3,6 +3,7 @@
 #include "row.h"
 #include "jimio.h"
 #include "fileio.h"
+#include "window.h"
 #include <unistd.h>
 #include <signal.h>
 
@@ -15,6 +16,8 @@ void freeEditor() {
 	free(E.row);	
 	free(E.filename);
 	free(E.cpbuffer);	
+	for (int i = 0; i < E.win.numrows; i++) editorFreeRow(&E.win.row[i]);
+	free(E.win.row);
 	write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
@@ -37,6 +40,13 @@ void initEditor() {
 	E.statusmsg_time = 0;
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 	E.screenrows -= 2;
+	E.win.active = E.win.location = 0;
+	E.win.minCols = E.win.screencols = E.win.screenrows = 0;
+	E.win.divider = 0;
+	E.win.xOffset = E.win.yOffset = 0;
+	E.win.handler = 0;
+	E.win.row = NULL;
+	E.win.numrows = 0;
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
@@ -45,6 +55,16 @@ static void win_sighandler(int sig) {
 		write(STDOUT_FILENO, "\x1b[2J", 4);
 		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 		E.screenrows -= 2;
+		if (E.win.active) {
+			E.win.screencols = E.screencols/E.win.divider;
+			if (E.win.screencols < E.win.minCols) {
+				clearWindow();
+			}
+			else {
+				E.screencols -= E.win.screencols;
+				E.win.screenrows = E.screenrows;
+			}
+		}
 		editorRefreshScreen();
 	}
 }

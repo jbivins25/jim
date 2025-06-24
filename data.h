@@ -32,7 +32,8 @@ enum styleType {
 
 enum modeType {
 	NORMAL = 0,
-	SELECT
+	SELECT,
+	WINDOW
 };
 
 typedef struct erow {
@@ -41,6 +42,19 @@ typedef struct erow {
 	char* chars;
 	char* render;
 } erow;
+
+typedef void (*winHandler) (char c);
+
+typedef struct {
+	char active, location;
+	int minCols, screencols, screenrows;
+	int xOffset, yOffset;
+	winHandler handler;
+	erow* row;
+	int divider;
+	int numrows;
+	char* header;
+} windowConfig;
 
 struct editorConfig {
 	int cx, cy;
@@ -59,6 +73,7 @@ struct editorConfig {
 	char statusmsg[80];
 	time_t statusmsg_time;
 	struct termios orig_termios;
+	windowConfig win;
 };
 
 extern struct editorConfig E;

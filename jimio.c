@@ -6,6 +6,7 @@
 #include "command.h"
 #include "row.h"
 #include "terminal.h"
+#include "window.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -33,7 +34,8 @@ void editorScroll() {
 }
 
 void editorDrawRows(struct abuf* ab) {
-	for (int y = 0; y < E.screenrows; y++) {
+	for (int y = 0; y < E.screenrows; y++) { 
+		if (E.win.active && E.win.location == 0) drawWindow(ab, y);
 		int filerow = y + E.rowoff;
 		if ( filerow >= E.numrows) {
 			abAppend(ab, "~", 1);
@@ -58,19 +60,21 @@ void editorDrawRows(struct abuf* ab) {
 		abAppend(ab,"\x1b[39m",5); //Sets default text color
 		abAppend(ab,"\x1b[49m",5); //Sets default background color
 		abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
+		if (E.win.active && E.win.location == 1) drawWindow(ab, y);
 		abAppend(ab, "\r\n", 2);
 	}
 }
 
 void editorDrawStatusBar(struct abuf *ab) {
+	char* statusMode[3] = {"Normal","Select","Window"};
 	abAppend(ab, "\x1b[7m", 4); //Print with inverted colors
 	char status[80], rstatus[80];
 	int len = snprintf(status, sizeof(status), "%.20s - %d lines %s", E.filename ? E.filename : "[No name]", E.numrows, E.dirty ? "(modified)" : "");
-	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", E.mode ? "Select" : "Normal", E.cy + 1, E.numrows);
-	if (len > E.screencols) len = E.screencols;
+	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", statusMode[E.mode], E.cy + 1, E.numrows);
+	if (len > E.screencols + E.win.screencols) len = E.screencols + E.win.screencols;
 	abAppend(ab, status, len);
-	while (len < E.screencols) {
-		if (E.screencols - len == rlen) {
+	while (len < E.screencols + E.win.screencols) {
+		if (E.screencols + E.win.screencols - len == rlen) {
 			abAppend(ab, rstatus, rlen);
 			break;
 		} 
@@ -86,7 +90,7 @@ void editorDrawStatusBar(struct abuf *ab) {
 void editorDrawMessageBar(struct abuf *ab) {
 	abAppend(ab, "\x1b[K", 3);
 	int msglen = strlen(E.statusmsg);
-	if (msglen > E.screencols) msglen = E.screencols;
+	if (msglen > E.screencols + E.win.screencols) msglen = E.screencols + E.win.screencols;
 	if (msglen && time(NULL) - E.statusmsg_time < 5) abAppend(ab, E.statusmsg, msglen);
 }
 
@@ -100,7 +104,7 @@ void editorRefreshScreen() {
 	editorDrawStatusBar(&ab);
 	editorDrawMessageBar(&ab);
 	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff)+1, (E.rx - E.coloff)+1); //Add one to deal with terminal cursor indexing
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1 + (E.win.active && E.win.location == 0 ? E.win.screencols : 0) ); //Add one to deal with terminal cursor indexing
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, "\x1b[?25h", 6); //View cursor
 
@@ -222,7 +226,7 @@ void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	switch(c) {
-		case '\r':
+		case '\r': // CTRL_KEY('m') maps to this
 			if (E.mode == SELECT) editorHghlt(c);
 			editorInsertNewline();
 			break;
@@ -244,6 +248,11 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('w'):
+			if (E.mode != WINDOW && E.win.active && E.win.handler) E.mode = WINDOW;
+			else E.mode = NORMAL;
+			break; //Todo: window mode
+
+		case CTRL_KEY('e'):
 			if (E.mode == SELECT) {editorHghlt(c); break;}
 			E.mode = SELECT;
 			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
@@ -253,12 +262,25 @@ void editorProcessKeypress() {
 			}
 			break;
 
+		case CTRL_KEY('a'):
+			if (E.mode != SELECT) E.mode = SELECT;
+			E.selected[0] = 0;
+			E.selected[1] = E.numrows-1;
+			E.selected[2] = 0;
+			E.selected[3] = E.row[E.numrows-1].size-1;
+			E.cx = E.row[E.numrows-1].size-1;
+			E.cy = E.numrows-1;
+			break;
+
+		case CTRL_KEY('y'):
+			break; //Todo: redo
+
 		case CTRL_KEY('z'):
 			break; //Todo: undo
 
 		case CTRL_KEY('c'):
 			if (E.mode == SELECT) editorHghlt(c);
-			break; //Todo: copy
+			break;
 
 		case CTRL_KEY('v'):
 			if (E.cpbuffer == NULL) break;
@@ -267,14 +289,6 @@ void editorProcessKeypress() {
 				exitSelect();
 			}
 			editorPaste();
-			break;
-
-		case CTRL_KEY('a'):
-			if (E.mode == NORMAL) E.mode = SELECT;
-			E.cx = 0;
-			E.cy = 0;
-			E.selected[0] = E.selected[2] = E.selected[3] = 0;
-			E.selected[1] = E.numrows-1;
 			break;
 
 		case CTRL_KEY('p'): {
@@ -436,9 +450,23 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('t'):
+			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
+			else {
+				windowSetup(0, 20, 5, NULL, "Tree");
+				if (E.win.screencols < E.win.minCols) clearWindow();
+			}
 			break;
 
+		case CTRL_KEY('b'):
+		case CTRL_KEY('d'):
+		case CTRL_KEY('g'):
+		case CTRL_KEY('j'):
+		case CTRL_KEY('k'):
+		case CTRL_KEY('n'):
 		case CTRL_KEY('o'):
+		case CTRL_KEY('r'):
+		case CTRL_KEY('u'):
+		case CTRL_KEY('x'):
 			break;
             
 		case HOME_KEY:
