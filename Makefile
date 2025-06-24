@@ -3,6 +3,9 @@ CFLAGS=-ggdb -Wall -Wextra -pedantic -std=c99
 
 local: jim_loc
 
+debug: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o
+	gcc -g -fsanitize=address -o jim *.o
+
 jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o
 	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o -o jim
 

@@ -10,6 +10,7 @@
 struct editorConfig E;
 
 void freeEditor() {
+	if (E.win.active) clearWindow();
 	for (int i = 0; i < E.numrows; i++) {
 		editorFreeRow(&E.row[i]);
 	}

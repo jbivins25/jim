@@ -249,6 +249,7 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('w'):
 			if (E.mode != WINDOW && E.win.active && E.win.handler) E.mode = WINDOW;
+			else if (E.win.active && E.win.handler) clearWindow();
 			else E.mode = NORMAL;
 			break; //Todo: window mode
 
@@ -452,7 +453,7 @@ void editorProcessKeypress() {
 		case CTRL_KEY('t'):
 			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
 			else {
-				windowSetup(0, 20, 5, NULL, "Tree");
+				windowSetup(0, 20, 5, NULL, strdup("Tree"));
 				if (E.win.screencols < E.win.minCols) clearWindow();
 			}
 			break;

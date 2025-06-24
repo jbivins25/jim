@@ -12,12 +12,14 @@ void editorCommandCallback(char* query, int key) {
 	int ret_val;
 
 	if (key == '\x1b') {
+		free(args);
 		return;
 	}
 	else if (key == '\r') {
 		parseQuery(query, &args, limit);
 		int com_ind = findCommand(query);
 		if (com_ind < 0) {
+			free(args);
 			return;
 		}
 		int argc = 0;
