@@ -249,7 +249,7 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('w'):
 			if (E.mode != WINDOW && E.win.active && E.win.handler) E.mode = WINDOW;
-			else if (E.win.active && E.win.handler) clearWindow();
+			else if (E.win.active && !E.win.handler) clearWindow();
 			else E.mode = NORMAL;
 			break; //Todo: window mode
 

@@ -9,7 +9,7 @@
 
 
 void windowSetup(char location, int minCols, int divider, void (*winHandler)(char c), char* header) {
-	if (E.screencols/divider < minCols) return;
+	if ((E.screencols+E.win.screencols)/divider < minCols) return;
 	clearWindow();
 	E.win.active = 1;
 	E.win.location = location;
@@ -51,6 +51,18 @@ void drawWindow(struct abuf* ab, int y) {
 		diff = diff-(diff/2);
 		for (int i = 0; i < diff; i++) abAppend(ab," ",1);
 		abAppend(ab, "\x1b[m", 3);
+	}
+	else if (y == 0) {
+		abAppend(ab, "\x1b[7m", 4);
+		for (int i = 0; i < E.win.screencols - 1; i++ ) abAppend(ab," ",1);
+		abAppend(ab, "\x1b[m", 3);
+	}
+	else if ( (y + E.win.xOffset - 1) < E.win.numrows) {
+		int filerow = y + E.win.xOffset - 1;
+		int len = E.win.row[filerow].rsize - E.win.yOffset;
+		if (len < 0) len = 0;
+		if (len > E.win.screencols-1) len = E.win.screencols-1;
+		for (int j = 0; j < len; j++) {abAppend(ab, &E.win.row[filerow].render[E.win.yOffset + j], 1);}
 	}
 	if (E.win.location == 0) {
 		if ( y > E.win.numrows ) {
