@@ -53,7 +53,7 @@ void initEditor() {
 
 static void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {
-		write(STDOUT_FILENO, "\x1b[2J", 4);
+		//write(STDOUT_FILENO, "\x1b[2J", 4);
 		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 		E.screenrows -= 2;
 		if (E.win.active) {
