@@ -217,9 +217,9 @@ void editorHghlt(int c) {
 void editorMoveLine() {
 	char* query = editorPrompt("Line number: %s", NULL);
 	int line = atoi(query);
-	if (line >= 0 && line <= E.numrows) {
+	if (line > 0 && line <= E.numrows) {
 		E.cx = 0;
-		E.cy = line;
+		E.cy = line-1;
 	}	
 }
 

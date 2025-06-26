@@ -6,6 +6,10 @@
 #include "data.h"
 #include "window.h"
 
+void catProcessKey(char c) {
+
+}
+
 int jim_cat(const int argc, const char* args[]) {
 	if ( argc < 1 ) return -1;
 	FILE* fp = fopen(args[0], "r");

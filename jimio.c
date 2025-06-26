@@ -160,6 +160,159 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 	}
 }
 
+void editorMatchMark() {
+	char init = E.row[E.cy].chars[E.cx];
+	char* currchars = E.row[E.cy].chars;
+	int stack = 1;
+	char charStack = 0;
+	char prevChar = 0;
+	switch (init) {
+		case '(':
+			while (stack > 0) {
+				E.cx++;
+				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = 0;
+				}
+				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+				currchars = E.row[E.cy].chars;
+				if (currchars[E.cx] == ')' && !charStack) stack--;
+				else if (currchars[E.cx] == '(' && !charStack) stack++;
+				else if ((currchars[E.cx] == '\"' || currchars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = currchars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+					charStack = prevChar = 0;
+				}
+			}
+		break;
+
+		case ')':
+			while (stack != 0) {
+				E.cx--;
+				if (E.cx < 0 && E.cy > 0) {
+					while (--E.cy > 0 && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = E.row[E.cy].size-1;
+				}
+				else if (E.cy == 0 && E.cx == 0) {
+					E.cx = 0;
+					break;
+				}
+				currchars = E.row[E.cy].chars;
+				if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack--;
+				else if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack++;
+				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = E.row[E.cy].chars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+					charStack = prevChar = 0;
+				}
+			}
+			break;
+
+		case '[':
+			while (stack != 0) {
+				E.cx++;
+				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = 0;
+				}
+				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+				currchars = E.row[E.cy].chars;
+				if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack--;
+				else if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack++;
+				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = E.row[E.cy].chars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+					charStack = prevChar = 0;
+				}
+			}	
+			break;
+
+		case ']':
+			while (stack != 0) {
+				E.cx--;
+				if (E.cx < 0 && E.cy > 0) {
+					while (--E.cy > 0 && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = E.row[E.cy].size-1;
+				}
+				else if (E.cy == 0 && E.cx == 0) {
+					E.cx = 0;
+					break;
+				}
+				currchars = E.row[E.cy].chars;
+				if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack--;
+				else if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack++;
+				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = E.row[E.cy].chars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+					charStack = prevChar = 0;
+				}
+			}
+			break;
+
+		case '{':
+			while (stack != 0) {
+				E.cx++;
+				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
+					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = 0;
+				}
+				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
+				currchars = E.row[E.cy].chars;
+				if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack--;
+				else if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack++;
+				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = E.row[E.cy].chars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+					charStack = prevChar = 0;
+				}
+			}
+			break;
+					
+		case '}':
+			while (stack != 0) {
+				E.cx--;
+				if (E.cx < 0 && E.cy > 0) {
+					while (--E.cy > 0 && E.row[E.cy].size == 0);
+					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
+					E.cx = E.row[E.cy].size-1;
+				}
+				else if (E.cy == 0 && E.cx == 0) {
+					E.cx = 0;
+					break;
+				}
+				currchars = E.row[E.cy].chars;
+				if (currchars[E.cx] == '{' && !charStack) stack--;
+				else if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack++;
+				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
+					charStack = 1;
+					prevChar = E.row[E.cy].chars[E.cx];
+				}
+				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
+						charStack = prevChar = 0;
+				}
+			}
+			break;
+
+		default:
+			break;
+	}
+}
+
 void editorMoveCursor(int key) {
 	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	switch (key) {
@@ -292,153 +445,10 @@ void editorProcessKeypress() {
 			editorPaste();
 			break;
 
-		case CTRL_KEY('p'): {
-				if (E.mode == SELECT) editorHghlt(c);
-				char init = E.row[E.cy].chars[E.cx];
-				int stack = 1;
-				char charStack = 0;
-				char prevChar = 0;
-				switch (init) {
-					case '(':
-						while (stack > 0) {
-							E.cx++;
-							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = 0;
-							}
-							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-							if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-
-					case ')':
-						while (stack != 0) {
-							E.cx--;
-							if (E.cx < 0 && E.cy > 0) {
-								while (--E.cy > 0 && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = E.row[E.cy].size-1;
-							}
-							else if (E.cy == 0 && E.cx == 0) {
-								E.cx = 0;
-								break;
-							}
-							if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-
-					case '[':
-						while (stack != 0) {
-							E.cx++;
-							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = 0;
-							}
-							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-							if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-
-					case ']':
-						while (stack != 0) {
-							E.cx--;
-							if (E.cx < 0 && E.cy > 0) {
-								while (--E.cy > 0 && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = E.row[E.cy].size-1;
-							}
-							else if (E.cy == 0 && E.cx == 0) {
-								E.cx = 0;
-								break;
-							}
-							if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-
-					case '{':
-						while (stack != 0) {
-							E.cx++;
-							if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-								while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = 0;
-							}
-							else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-							if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-						
-					case '}':
-						while (stack != 0) {
-							E.cx--;
-							if (E.cx < 0 && E.cy > 0) {
-								while (--E.cy > 0 && E.row[E.cy].size == 0);
-								if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-								E.cx = E.row[E.cy].size-1;
-							}
-							else if (E.cy == 0 && E.cx == 0) {
-								E.cx = 0;
-								break;
-							}
-							if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack--;
-							else if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack++;
-							else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-								charStack = 1;
-								prevChar = E.row[E.cy].chars[E.cx];
-							}
-							else if (charStack && E.row[E.cy].chars[E.cx] == prevChar) {
-								charStack = prevChar = 0;
-							}
-						}
-						break;
-
-					default:
-						break;
-				}
-				break;
-			}
+		case CTRL_KEY('p'): 
+			if (E.mode == SELECT) editorHghlt(c);
+			editorMatchMark();
+			break;
 
 		case CTRL_KEY('f'):
 			if (E.mode == SELECT) break;
