@@ -68,6 +68,7 @@ static void win_sighandler(int sig) {
 				E.win.screenrows = E.screenrows;
 			}
 		}
+		redrawWholeScreen = 1;
 		editorRefreshScreen();
 	}
 }

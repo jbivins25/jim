@@ -15,6 +15,9 @@
 #include <unistd.h>
 
 void editorScroll() {
+	int init_rowoff, init_coloff;
+	init_rowoff = E.rowoff;
+	init_coloff = E.coloff;
 	if (E.cy < E.numrows) {
 		E.rx = editorRowCxToRx(&E.row[E.cy], E.cx);
 	}
@@ -30,6 +33,9 @@ void editorScroll() {
 	}
 	if (E.rx >= E.coloff + E.screencols) { //Scroll right
 		E.coloff = E.rx - E.screencols + 1;
+	}
+	if (E.rowoff != init_rowoff || E.coloff != init_coloff) {
+		memset(redrawLine,1,E.screenrows);
 	}
 }
 
