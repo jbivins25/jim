@@ -221,6 +221,7 @@ void editorMoveLine() {
 		E.cx = 0;
 		E.cy = line-1;
 	}	
+	redrawWholeScreen = 1;
 }
 
 void editorPaste() {
@@ -236,6 +237,7 @@ void editorPaste() {
 			size++;
 		}
 	}	
+	redrawWholeScreen = 1;
 }
 
 void editorDelSelect() {
@@ -264,6 +266,7 @@ void editorDelSelect() {
 			editorRowDelChar(&E.row[E.selected[0]], i);
 		}
 	}
+	redrawWholeScreen = 1;
 }
 
 void editorInsertChar(int c) {
@@ -272,6 +275,9 @@ void editorInsertChar(int c) {
 	}
 	editorRowInsertChar(&E.row[E.cy], E.cx, c);
 	E.cx++;
+	if (E.cy-E.rowoff < 0) return;
+	if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+	else redrawLine[E.cy-E.rowoff] = 1;
 }
 
 void editorInsertNewline() {
@@ -288,6 +294,13 @@ void editorInsertNewline() {
 	}
 	E.cy++;
 	E.cx = 0;
+	int line = E.cy-1-E.rowoff;
+	if (line < 0) return;
+	if (line == 0) {redrawWholeScreen = 1; return;}
+	for ( int i = line; i < E.screenrows; i++ ) {
+		if (redrawLine[i] > 1) redrawLine[i] = 3;
+		else redrawLine[i] = 1;
+	}
 }
 
 void editorDelChar() {
@@ -297,11 +310,21 @@ void editorDelChar() {
 	if (E.cx > 0) {
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
+		if (E.cy-E.rowoff < 0) return;
+		if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+		else redrawLine[E.cy-E.rowoff] = 1;
 	}
 	else {
 		E.cx = E.row[E.cy-1].size;
 		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
 		editorDelRow(E.cy);
 		E.cy--;
+		int line = E.cy-E.rowoff;
+		if (line < 0) return;
+		if (line == 0) {redrawWholeScreen = 1; return;}
+		for ( int i = line; i < E.screenrows; i++ ) {
+			if (redrawLine[i] > 1) redrawLine[i] = 3;
+			else redrawLine[i] = 1;
+		}	
 	}
 }

@@ -23,6 +23,7 @@ void windowSetup(char location, int minCols, int divider, void (*winHandler)(cha
 	E.win.row = NULL;
 	E.win.numrows = 0;
 	E.win.header = header;
+	redrawWholeScreen = 1;
 }
 
 void clearWindow() {
@@ -31,6 +32,7 @@ void clearWindow() {
 	free(E.win.row);
 	free(E.win.header);
 	memset(&E.win, 0, sizeof(windowConfig));
+	redrawWholeScreen = 1;
 }
 
 void drawWindow(struct abuf* ab, int y) {

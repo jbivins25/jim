@@ -34,38 +34,57 @@ void editorScroll() {
 }
 
 void editorDrawRows(struct abuf* ab) {
+	char buf[32];
 	for (int y = 0; y < E.screenrows; y++) { 
-		if (E.win.active && E.win.location == 0) drawWindow(ab, y);
-		int filerow = y + E.rowoff;
-		if ( filerow >= E.numrows) {
-			abAppend(ab, "~", 1);
-		}
-		else {
-			if (filerow > E.selected[0] && filerow < E.selected[1]) abAppend(ab, "\x1b[47m", 5); //If between the start/end automatically highlight everything
-			if (filerow == E.selected[1] && E.selected[0] != E.selected[1] && E.coloff <= editorRowCxToRx(&E.row[filerow],E.selected[3])) abAppend(ab, "\x1b[47m", 5); //If we are rendering the final row and we haven't gotten to the end of highlighting 
-			int len = E.row[filerow].rsize - E.coloff;
-			if (len < 0) len = 0;
-			if (len > E.screencols) len = E.screencols;
-			for (int j = 0; j < len; j++) {
-				if (filerow == E.selected[0] && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[2])) {
-					abAppend(ab, "\x1b[47m", 5);
+		if ( redrawWholeScreen || redrawLine[y] ) {
+			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, ((!redrawWholeScreen || redrawLine[y] == 1) && E.win.active && E.win.location == 0) ? E.win.screencols+1 : 0);
+			abAppend(ab, buf, strlen(buf));
+			if ( (redrawWholeScreen || redrawLine[y] == 2 || redrawLine[y] == 3) && (E.win.active && E.win.location == 0) ) drawWindow(ab, y);
+			if ( redrawWholeScreen || redrawLine[y] == 1 || redrawLine[y] == 3 ) {
+				if (E.win.active && E.win.location == 1 && redrawLine[y] == 1) {
+					snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols);
+					abAppend(ab, buf, strlen(buf));
+					abAppend(ab, "\x1b[1K", 4);
+					snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, 0);
+					abAppend(ab, buf, strlen(buf));
 				}
-				abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
-				if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
-					abAppend(ab,"\x1b[49m", 5);
+				int filerow = y + E.rowoff;
+				if ( filerow >= E.numrows) {
+					abAppend(ab, "~", 1);
 				}
+				else {
+					if (filerow > E.selected[0] && filerow < E.selected[1]) abAppend(ab, "\x1b[47m", 5); //If between the start/end automatically highlight everything
+					if (filerow == E.selected[1] && E.selected[0] != E.selected[1] && E.coloff <= editorRowCxToRx(&E.row[filerow],E.selected[3])) abAppend(ab, "\x1b[47m", 5); //If we are rendering the final row and we haven't gotten to the end of highlighting 
+					int len = E.row[filerow].rsize - E.coloff;
+					if (len < 0) len = 0;
+					if (len > E.screencols) len = E.screencols;
+					for (int j = 0; j < len; j++) {
+						if (filerow == E.selected[0] && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[2])) {
+							abAppend(ab, "\x1b[47m", 5);
+						}
+						abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
+						if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
+							abAppend(ab,"\x1b[49m", 5);
+						}
+					}
+				}
+			
+				abAppend(ab,"\x1b[39m",5); //Sets default text color
+				abAppend(ab,"\x1b[49m",5); //Sets default background color
+				if (!E.win.active || !(E.win.location == 1) || redrawLine[y] != 1) abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
 			}
+			if ( (redrawWholeScreen || redrawLine[y] == 2 || redrawLine[y] == 3) && (E.win.active && E.win.location == 1) ) drawWindow(ab, y);
+			abAppend(ab, "\r\n", 2);
+			redrawLine[y] = 0;
 		}
-
-		abAppend(ab,"\x1b[39m",5); //Sets default text color
-		abAppend(ab,"\x1b[49m",5); //Sets default background color
-		abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
-		if (E.win.active && E.win.location == 1) drawWindow(ab, y);
-		abAppend(ab, "\r\n", 2);
 	}
+	redrawWholeScreen = 0;
 }
 
 void editorDrawStatusBar(struct abuf *ab) {
+	char buf[32];
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.screenrows+1, 0);
+	abAppend(ab, buf, strlen(buf));
 	char* statusMode[3] = {"Normal","Select","Window"};
 	abAppend(ab, "\x1b[7m", 4); //Print with inverted colors
 	char status[80], rstatus[80];
@@ -88,6 +107,9 @@ void editorDrawStatusBar(struct abuf *ab) {
 }
 
 void editorDrawMessageBar(struct abuf *ab) {
+	char buf[32];
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.screenrows+2, 0);
+	abAppend(ab, buf, strlen(buf));
 	abAppend(ab, "\x1b[K", 3);
 	int msglen = strlen(E.statusmsg);
 	if (msglen > E.screencols + E.win.screencols) msglen = E.screencols + E.win.screencols;

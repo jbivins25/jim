@@ -11,6 +11,7 @@
 #define JIM_VERSION "1.3.1"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
+#define SCREEN_ROW_MAX 256
 
 enum editorKey {
 	BACKSPACE = 127,
@@ -77,5 +78,7 @@ struct editorConfig {
 };
 
 extern struct editorConfig E;
+extern char redrawLine[SCREEN_ROW_MAX];
+extern int redrawWholeScreen;
 
 #endif

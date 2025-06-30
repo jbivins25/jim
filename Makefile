@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS=-ggdb -Wall -Wextra -pedantic -std=c99
+CFLAGS=-ggdb -Wall -Wextra -pedantic
 
 local: jim_loc
 

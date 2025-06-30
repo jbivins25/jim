@@ -8,6 +8,8 @@
 #include <signal.h>
 
 struct editorConfig E;
+char redrawLine[SCREEN_ROW_MAX] = {0};
+int redrawWholeScreen = 1;
 
 void freeEditor() {
 	if (E.win.active) clearWindow();
