@@ -8,10 +8,11 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.3.1"
+#define JIM_VERSION "1.3.10"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
+#define UNDO_TIMEOUT 500
 
 enum editorKey {
 	BACKSPACE = 127,
@@ -37,6 +38,12 @@ enum modeType {
 	WINDOW
 };
 
+enum urType {
+	WRITE = 0,
+	DELETE,
+	NULL_UR
+};
+
 typedef struct erow {
 	int size;
 	int rsize;
@@ -44,18 +51,34 @@ typedef struct erow {
 	char* render;
 } erow;
 
-typedef void (*winHandler) (char c);
+typedef void (*winHandler) (int c);
 
 typedef struct {
 	char active, location;
 	int minCols, screencols, screenrows;
-	int xOffset, yOffset;
+	int cx, cy, xOffset, yOffset;
 	winHandler handler;
 	erow* row;
 	int divider;
 	int numrows;
 	char* header;
 } windowConfig;
+
+typedef struct urBlock {
+	char type;
+	int start[2];
+	int length;
+	int childlen;
+	char* chars;
+	struct urBlock* parent;
+	struct urBlock** children;
+	struct timespec timestamp;
+} urBlock;
+
+typedef struct {
+	urBlock* root;
+	urBlock* curr;
+} urTree;
 
 struct editorConfig {
 	int cx, cy;
@@ -75,6 +98,8 @@ struct editorConfig {
 	time_t statusmsg_time;
 	struct termios orig_termios;
 	windowConfig win;
+	urTree tree;
+	char urType;
 };
 
 extern struct editorConfig E;

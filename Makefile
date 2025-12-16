@@ -1,16 +1,16 @@
 CC = gcc
-CFLAGS=-ggdb -Wall -Wextra -pedantic
+CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic
 
 local: jim_loc
 
-debug: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o
+debug: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
 	gcc -g -fsanitize=address -o jim *.o
 
-jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o
-	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o -o jim
+jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
+	$(CC) $(CFLAGS) *.o -o jim
 
-jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o
-	$(CC) $(CFLAGS) ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o -o ~/scripts/jim
+jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
+	$(CC) $(CFLAGS) *.o -o ~/bin/jim
 
 ab.o: ab.c ab.h
 	$(CC) $(CFLAGS) -c ab.c
@@ -38,6 +38,9 @@ row.o: row.c row.h data.h
 
 terminal.o: terminal.c terminal.h data.h
 	$(CC) $(CFLAGS) -c terminal.c
+
+ur.o: ur.c ur.h data.h
+	$(CC) $(CFLAGS) -c ur.c
 
 window.o: window.c window.h data.h
 	$(CC) $(CFLAGS) -c window.c

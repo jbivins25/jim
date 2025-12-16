@@ -2,10 +2,14 @@
 #include "editor.h"
 #include "row.h"
 #include "jimio.h"
+#include "ur.h"
 #include <string.h>
 #include <stdio.h>
 
 void exitSelect() {
+	for (int i = (E.selected[0] - E.rowoff < 0) ? 0 : E.selected[0] - E.rowoff; i < E.selected[1]+1; i++) {
+		redrawLine[i] = (redrawLine[i] == 2 || redrawLine[i] == 3 ) ? 3 : 1;
+	}
 	E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
 	E.mode = NORMAL;	
 }
@@ -120,6 +124,10 @@ void editorHghlt(int c) {
                 E.selected[2] = E.selected[3];
                 E.selected[3] = temp;
             }
+	    if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+	    else redrawLine[E.cy-E.rowoff] = 1;
+	    if (redrawLine[E.cy+1-E.rowoff] == 2 || redrawLine[E.cy+1-E.rowoff] == 3) redrawLine[E.cy+1-E.rowoff] = 3;
+	    else redrawLine[E.cy+1-E.rowoff] = 1;
             break;
             
         case ARROW_DOWN:
@@ -149,6 +157,10 @@ void editorHghlt(int c) {
                 E.selected[2] = E.selected[3];
                 E.selected[3] = temp;
             }
+	    if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+	    else redrawLine[E.cy-E.rowoff] = 1;
+	    if (redrawLine[E.cy-1-E.rowoff] == 2 || redrawLine[E.cy-1-E.rowoff] == 3) redrawLine[E.cy-1-E.rowoff] = 3;
+	    else redrawLine[E.cy-1-E.rowoff] = 1;
             break;
             
         case ARROW_LEFT:
@@ -183,6 +195,8 @@ void editorHghlt(int c) {
                 E.selected[2] = E.selected[3];
                 E.selected[3] = temp;
             }
+	    if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+	    else redrawLine[E.cy-E.rowoff] = 1;
             break;
             
         case ARROW_RIGHT:
@@ -210,6 +224,8 @@ void editorHghlt(int c) {
                 E.selected[2] = E.selected[3];
                 E.selected[3] = temp;
             }
+	    if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+	    else redrawLine[E.cy-E.rowoff] = 1;
             break;
 	}
 }
@@ -274,6 +290,18 @@ void editorInsertChar(int c) {
 		editorInsertRow(E.numrows,"", 0);
 	}
 	editorRowInsertChar(&E.row[E.cy], E.cx, c);
+	long sec, nsec;
+	if (E.tree.curr != NULL) {
+		struct timespec timestamp;
+		clock_gettime(CLOCK_MONOTONIC, &timestamp);
+		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+		sec = sec * 1000 + nsec / 1000000;
+	}
+	else sec = 0;
+	if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, c);
+	else appendUrChar(c);
+	E.urType = WRITE;
 	E.cx++;
 	if (E.cy-E.rowoff < 0) return;
 	if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
@@ -281,6 +309,41 @@ void editorInsertChar(int c) {
 }
 
 void editorInsertNewline() {
+	long sec, nsec;
+	if (E.tree.curr != NULL) {
+		struct timespec timestamp;
+		clock_gettime(CLOCK_MONOTONIC, &timestamp);
+		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+		sec = sec * 1000 + nsec / 1000000;
+	}
+	else sec = 0;
+	if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, '\r');
+	else appendUrChar('\r');
+	if (E.cx == 0) {
+		editorInsertRow(E.cy, "", 0);
+	}
+	else {
+		erow* row = &E.row[E.cy];
+		editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
+		row = &E.row[E.cy];
+		row->size = E.cx;
+		row->chars[row->size] = '\0';
+		editorUpdateRow(row);
+	}
+	E.cy++;
+	E.cx = 0;
+	int line = E.cy-1-E.rowoff;
+	if (line < 0) return;
+	if (line == 0) {redrawWholeScreen = 1; return;}
+	for ( int i = line; i < E.screenrows; i++ ) {
+		if (redrawLine[i] > 1) redrawLine[i] = 3;
+		else redrawLine[i] = 1;
+	}
+	E.urType = WRITE;
+}
+
+void editorInsertNewlineUR() {
 	if (E.cx == 0) {
 		editorInsertRow(E.cy, "", 0);
 	}
@@ -307,6 +370,46 @@ void editorDelChar() {
 	if (E.cy == E.numrows) return;
 	if (E.cx == 0 && E.cy == 0) return;
 	erow *row = &E.row[E.cy];
+	long sec, nsec;
+	if (E.tree.curr != NULL) {
+		struct timespec timestamp;
+		clock_gettime(CLOCK_MONOTONIC, &timestamp);
+		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+		sec = sec * 1000 + nsec / 1000000;
+	}
+	else sec = 0;
+	if (E.cx > 0) {
+		if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, row->chars[E.cx-1]);
+		else appendUrChar(row->chars[E.cx-1]);
+		editorRowDelChar(row, E.cx - 1);
+		E.cx--;
+		if (E.cy-E.rowoff < 0) return;
+		if (redrawLine[E.cy-E.rowoff] == 2 || redrawLine[E.cy-E.rowoff] == 3) redrawLine[E.cy-E.rowoff] = 3;
+		else redrawLine[E.cy-E.rowoff] = 1;
+	}
+	else {
+		E.cx = E.row[E.cy-1].size;
+		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
+		editorDelRow(E.cy);
+		E.cy--;
+		int line = E.cy-E.rowoff;
+		if (line < 0) return;
+		if (line == 0) {redrawWholeScreen = 1; return;}
+		for ( int i = line; i < E.screenrows; i++ ) {
+			if (redrawLine[i] > 1) redrawLine[i] = 3;
+			else redrawLine[i] = 1;
+		}
+		if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
+		else appendUrChar('\r');
+	}
+	E.urType = DELETE;
+}
+
+void editorDelCharUR() {
+	if (E.cy == E.numrows) return;
+	if (E.cx == 0 && E.cy == 0) return;
+	erow *row = &E.row[E.cy];
 	if (E.cx > 0) {
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
@@ -325,6 +428,6 @@ void editorDelChar() {
 		for ( int i = line; i < E.screenrows; i++ ) {
 			if (redrawLine[i] > 1) redrawLine[i] = 3;
 			else redrawLine[i] = 1;
-		}	
+		}
 	}
 }

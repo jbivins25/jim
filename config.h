@@ -1,6 +1,8 @@
 // ============Commands=============
 // Define your command headers here
+#include "jim_shell.h"
 #include "jim_cat.h"
+#include "jim_open.h"
 // =================================
 
 typedef int (*CommandFunc)(const int argc, const char* args[]); //By default, 0 will be interpretted as success and any negative values are errors which will be printed
@@ -14,10 +16,12 @@ typedef struct {
 // Add your command entry & update
 // the table size
 
-#define COM_TAB_SIZE 1
+#define COM_TAB_SIZE 2
 
 commandEntry command_table[] = {
-	{"cat",jim_cat}
+	{"term",jim_shell},
+	{"cat",jim_cat},
+	{"open",jim_open}
 };
 
 // =================================

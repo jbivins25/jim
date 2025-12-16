@@ -18,6 +18,7 @@ void editorCommandCallback(char* query, int key) {
 	else if (key == '\r') {
 		parseQuery(query, &args, limit);
 		int com_ind = findCommand(query);
+		if (query[0] == '!') com_ind = 0;
 		if (com_ind < 0) {
 			free(args);
 			return;
@@ -34,6 +35,7 @@ void parseQuery(char* query, char*** args, size_t limit) {
 	char* temp = query;
 	size_t arg_counter = 0;
 	temp++;
+	if (query[0] == '!') (*args)[arg_counter++] = temp;
 	while (*temp != '\0') {
 		if (*temp == ' ') {
 			*temp = 0;
@@ -45,6 +47,7 @@ void parseQuery(char* query, char*** args, size_t limit) {
 		}
 		temp++;
 	}
+	(*args)[arg_counter] = NULL;
 }
 
 int findCommand(char* query) {

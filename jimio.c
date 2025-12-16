@@ -7,12 +7,15 @@
 #include "row.h"
 #include "terminal.h"
 #include "window.h"
+#include "ur.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <time.h>
+
 
 void editorScroll() {
 	int init_rowoff, init_coloff;
@@ -406,6 +409,8 @@ void editorProcessKeypress() {
 	static int quit_times = JIM_QUIT_TIMES;
 	int c = editorReadKey();
 
+	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
+
 	switch(c) {
 		case '\r': // CTRL_KEY('m') maps to this
 			if (E.mode == SELECT) editorHghlt(c);
@@ -455,9 +460,13 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('y'):
+			if (E.mode == SELECT) break;
+			redo();
 			break; //Todo: redo
 
 		case CTRL_KEY('z'):
+			if (E.mode == SELECT) break;
+			undo();
 			break; //Todo: undo
 
 		case CTRL_KEY('c'):
@@ -491,7 +500,8 @@ void editorProcessKeypress() {
 		case CTRL_KEY('t'):
 			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
 			else {
-				windowSetup(0, 20, 5, NULL, strdup("Tree"));
+				windowSetup(0, 20, 5, treeProcessKey, strdup("Tree"));
+				drawTree();
 				if (E.win.screencols < E.win.minCols) clearWindow();
 			}
 			break;
@@ -522,7 +532,7 @@ void editorProcessKeypress() {
 
 		case BACKSPACE:
 		case CTRL_KEY('h'):
-		case DEL_KEY:
+		case DEL_KEY: 
 			if (E.mode == SELECT) {editorHghlt(c); break;}
 			if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
 			editorDelChar();

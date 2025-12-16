@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 
-void windowSetup(char location, int minCols, int divider, void (*winHandler)(char c), char* header) {
+void windowSetup(char location, int minCols, int divider, void (*winHandler)(int c), char* header) {
 	if ((E.screencols+E.win.screencols)/divider < minCols) return;
 	clearWindow();
 	E.win.active = 1;
@@ -24,6 +24,7 @@ void windowSetup(char location, int minCols, int divider, void (*winHandler)(cha
 	E.win.numrows = 0;
 	E.win.header = header;
 	redrawWholeScreen = 1;
+	if (E.win.handler) E.mode = WINDOW;
 }
 
 void clearWindow() {
@@ -59,23 +60,22 @@ void drawWindow(struct abuf* ab, int y) {
 		for (int i = 0; i < E.win.screencols - 1; i++ ) abAppend(ab," ",1);
 		abAppend(ab, "\x1b[m", 3);
 	}
-	else if ( (y + E.win.xOffset - 1) < E.win.numrows) {
-		int filerow = y + E.win.xOffset - 1;
-		int len = E.win.row[filerow].rsize - E.win.yOffset;
+	else if ( (y-1 + E.win.yOffset) < E.win.numrows) {
+		int filerow = y-1 + E.win.yOffset;
+		int len = E.win.row[filerow].rsize - E.win.xOffset;
 		if (len < 0) len = 0;
 		if (len > E.win.screencols-1) len = E.win.screencols-1;
-		for (int j = 0; j < len; j++) {abAppend(ab, &E.win.row[filerow].render[E.win.yOffset + j], 1);}
+		for (int j = 0; j < len; j++) {abAppend(ab, &E.win.row[filerow].render[E.win.xOffset + j], 1);}
 	}
 	if (E.win.location == 0) {
-		if ( y > E.win.numrows ) {
-			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.win.screencols);
-			abAppend(ab, buf, strlen(buf));
-			abAppend(ab, "\x1b[1K", 4);
-		}
+		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.win.screencols);
+		abAppend(ab, buf, strlen(buf));
+		if (y > E.win.numrows) abAppend(ab, "\x1b[1K", 4);
 		abAppend(ab, "\x1b[7m", 4);
 		abAppend(ab,"|",1);
 		abAppend(ab, "\x1b[m", 3);		
 	}
+	else abAppend(ab, "\x1b[K", 3);
 }
 
 int windowAddRow(char* text, int row, size_t len) {
@@ -96,9 +96,53 @@ int windowAddRow(char* text, int row, size_t len) {
 }
 
 void windowDelRow(int row) {
-
+	if (row < 0 || row >= E.win.numrows) return;
+	editorFreeRow(&E.win.row[row]);
+	memmove(&E.win.row[row], &E.row[row + 1], sizeof(erow)*(E.win.numrows-row-1));
+	E.win.numrows--;
 }
 
 void windowSetRow(char* text, int row, size_t len) {
+	if (row < 0 || row >= E.win.numrows) return;
+	E.win.row[row].size = len;
+	free(E.win.row[row].chars);
+	E.win.row[row].chars = text;
+	E.win.row[row].chars[len] = '\0';
+	E.win.row[row].rsize = 0;
+	E.win.row[row].render = NULL;
+	editorUpdateRow(&E.win.row[row]);
+}
 
+int maxLineSize() {
+	int max = 0;
+	for ( int i = E.win.yOffset; i < (E.win.numrows <= E.win.screenrows-1 ? E.win.numrows : E.win.screenrows-1 + E.win.yOffset); i++ ) {
+		if (E.win.row[i].rsize > max) max = E.win.row[i].rsize;
+	}
+	return max;
+}
+
+void windowPageScroll(int c) {
+	int init_x, init_y;
+	init_x = E.win.xOffset;
+	init_y = E.win.yOffset;
+	switch(c) {
+		case ARROW_UP:
+			if (E.win.yOffset > 0) E.win.yOffset--;
+			break;
+
+		case ARROW_DOWN:
+			if (E.win.yOffset + E.win.screenrows-1 <= E.win.numrows) E.win.yOffset++;
+			break;
+
+		case ARROW_LEFT:
+			if (E.win.xOffset > 0) E.win.xOffset--;
+			break;
+
+		case ARROW_RIGHT:
+			if (E.win.xOffset + E.win.screencols-1 <= maxLineSize()) E.win.xOffset++;
+
+		default:
+			break;
+	}
+	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) memset(redrawLine,2,E.win.screenrows);
 }

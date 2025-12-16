@@ -4,8 +4,10 @@
 #include "jimio.h"
 #include "fileio.h"
 #include "window.h"
+#include "ur.h"
 #include <unistd.h>
 #include <signal.h>
+#include <stdio.h>
 
 struct editorConfig E;
 char redrawLine[SCREEN_ROW_MAX] = {0};
@@ -21,6 +23,7 @@ void freeEditor() {
 	free(E.cpbuffer);	
 	for (int i = 0; i < E.win.numrows; i++) editorFreeRow(&E.win.row[i]);
 	free(E.win.row);
+	freeTree(&E.tree);
 	write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
@@ -50,6 +53,8 @@ void initEditor() {
 	E.win.handler = 0;
 	E.win.row = NULL;
 	E.win.numrows = 0;
+	initTree(&E.tree);
+	E.urType = NULL_UR;
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
