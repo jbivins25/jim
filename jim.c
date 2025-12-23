@@ -25,7 +25,7 @@ void loadSyntax(char* filename) {
 	char file[512];
 	snprintf(file, len+15+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
 	FILE* f = fopen(file,"r");
-	if (f == NULL) die(file);
+	if (f == NULL) return;
 	E.syn.filetype = malloc(len+1);
 	strcpy(E.syn.filetype,ext);
 	char* line = NULL;
