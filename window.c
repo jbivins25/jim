@@ -45,6 +45,10 @@ void drawWindow(struct abuf* ab, int y) {
 		abAppend(ab,"|",1);
 		abAppend(ab, "\x1b[m", 3);
 	}
+	else {
+		snprintf(buf, sizeof(buf), "\x1b[%d;%dH\033[1K\r", y+1, E.win.screencols);
+		abAppend(ab, buf, strlen(buf));
+	}
 	int length = E.win.header ? strlen(E.win.header) : 0;
 	if (y == 0 &&  length < E.win.screencols ) {
 		int diff = E.win.screencols - 1 - length;
@@ -90,6 +94,9 @@ int windowAddRow(char* text, int row, size_t len) {
 	E.win.row[row].chars[len] = '\0';
 	E.win.row[row].rsize = 0;
 	E.win.row[row].render = NULL;
+	E.win.row[row].hl = NULL;
+	E.win.row[row].hl_open_comment = 0;
+	E.win.row[row].hl_open_string = 0;
 	editorUpdateRow(&E.win.row[row]);
 	E.win.numrows++;
 	return 0;

@@ -11,5 +11,7 @@ void editorInsertNewline();
 void editorInsertNewlineUR();
 void editorDelChar();
 void editorDelCharUR();
+void editorUpdateSyntax(erow *row);
+int editorSyntaxToColor(int hl);
 
 #endif

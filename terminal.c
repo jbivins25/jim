@@ -7,9 +7,11 @@
 #include <sys/ioctl.h>
 
 void die(const char *s) {
+	disableRawMode();
 	write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on error
 	write(STDOUT_FILENO, "\x1b[H", 3);
 	perror(s);
+	fflush(stderr);
 	exit(1);
 }
 

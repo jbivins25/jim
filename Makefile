@@ -9,8 +9,9 @@ debug: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o wi
 jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
 	$(CC) $(CFLAGS) *.o -o jim
 
-jim: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
+jim: setup_env ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
 	$(CC) $(CFLAGS) *.o -o ~/bin/jim
+	@echo Done!
 
 ab.o: ab.c ab.h
 	$(CC) $(CFLAGS) -c ab.c
@@ -18,7 +19,7 @@ ab.o: ab.c ab.h
 command.o: command.c command.h config.h
 	$(CC) $(CFLAGS) -c command.c
 
-editor.o: editor.c editor.h data.h row.h jimio.h
+editor.o: editor.c editor.h data.h row.h jimio.h palette.h
 	$(CC) $(CFLAGS) -c editor.c
 
 fileio.o: fileio.c fileio.h data.h jimio.h row.h
@@ -44,6 +45,14 @@ ur.o: ur.c ur.h data.h
 
 window.o: window.c window.h data.h
 	$(CC) $(CFLAGS) -c window.c
+
+setup_env:
+	@echo Installing jim...
+	@echo Setting up environment...
+	mkdir -p ~/bin
+	mkdir -p ~/.jim
+	cp jim_*.syn ~/.jim/.
+	@echo Compiling...
 
 clean:
 	rm -f jim *.o

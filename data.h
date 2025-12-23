@@ -8,11 +8,21 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.3.10"
+#define JIM_VERSION "1.5.0"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
 #define UNDO_TIMEOUT 500
+
+//====================================
+// Syntax Flags
+#define HGHLT_NUM (1 << 0)
+#define HGHLT_STRING (1 << 1)
+#define HGHLT_SL_CM (1 << 2)
+#define HGHLT_ML_CM (1 << 3)
+#define HGHLT_PREPRC (1 << 4)
+#define HGHLT_ML_STRINGS (1 << 5)
+//====================================
 
 enum editorKey {
 	BACKSPACE = 127,
@@ -29,7 +39,13 @@ enum editorKey {
 
 enum styleType {
 	NORM = 0,
-	HGHLT
+	HGHLT,
+	COMMENT,
+	STRING,
+	NUMBER,
+	KEYWORD,
+	TYPE,
+	MATCH
 };
 
 enum modeType {
@@ -45,10 +61,14 @@ enum urType {
 };
 
 typedef struct erow {
+	int ind;
 	int size;
 	int rsize;
 	char* chars;
 	char* render;
+	unsigned char* hl;
+	int hl_open_comment;
+	int hl_open_string;
 } erow;
 
 typedef void (*winHandler) (int c);
@@ -80,6 +100,18 @@ typedef struct {
 	urBlock* curr;
 } urTree;
 
+typedef struct {
+	char* filetype;
+	char** keywords;
+	char** types;
+	char* slComment;
+	char* mlCommentStart;
+	char* mlCommentEnd;
+	int keywordCount;
+	int typeCount;
+	int flags;
+} editorSyntax;
+
 struct editorConfig {
 	int cx, cy;
 	int rx; //Render x for handling tabs
@@ -98,8 +130,10 @@ struct editorConfig {
 	time_t statusmsg_time;
 	struct termios orig_termios;
 	windowConfig win;
+	editorSyntax syn;
 	urTree tree;
 	char urType;
+	int colorful;
 };
 
 extern struct editorConfig E;

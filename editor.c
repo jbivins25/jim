@@ -3,8 +3,10 @@
 #include "row.h"
 #include "jimio.h"
 #include "ur.h"
+#include "palette.h"
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 void exitSelect() {
 	for (int i = (E.selected[0] - E.rowoff < 0) ? 0 : E.selected[0] - E.rowoff; i < E.selected[1]+1; i++) {
@@ -429,5 +431,142 @@ void editorDelCharUR() {
 			if (redrawLine[i] > 1) redrawLine[i] = 3;
 			else redrawLine[i] = 1;
 		}
+	}
+}
+
+int isSeparator(int c) {
+	return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[]{};", c) != NULL;
+}
+
+void editorUpdateSyntax(erow *row) {
+	row->hl = realloc(row->hl, row->rsize);
+	memset(row->hl, NORM, row->rsize);
+	if (E.syn.filetype == NULL) return;
+
+	size_t slc_len = E.syn.slComment ? strlen(E.syn.slComment) : 0;
+	size_t mlcs_len = E.syn.mlCommentStart ? strlen(E.syn.mlCommentStart) : 0;
+	size_t mlce_len = E.syn.mlCommentEnd ? strlen(E.syn.mlCommentEnd) : 0;	
+
+	int in_comment = (row->ind > 0 && E.row[row->ind-1].hl_open_comment);
+	int in_string = (row->ind > 0 && E.row[row->ind-1].hl_open_string);
+	int prev_sep = 1;
+
+	for (int i = 0; i < row->rsize; i++) {
+		char c = row->render[i];
+		unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : NORMAL;
+
+		if (slc_len && !in_comment && !in_string) {
+			if (!strncmp(&row->render[i],E.syn.slComment,slc_len)) {
+				memset(&row->hl[i], COMMENT, row->rsize - i);
+				break;
+			}
+		}
+
+		if (mlcs_len && mlce_len && !in_string) {
+			if (in_comment) {
+				row->hl[i] = COMMENT;
+				if (!strncmp(&row->render[i], E.syn.mlCommentEnd, mlce_len)) {
+					memset(&row->hl[i], COMMENT, mlce_len);
+					i += mlce_len-1;
+					in_comment = 0;
+					prev_sep = 1;
+				}
+				continue;
+			}
+			else {
+				if (!strncmp(&row->render[i], E.syn.mlCommentStart, mlcs_len)) {
+					memset(&row->hl[i], COMMENT, mlcs_len);
+					i += mlcs_len-1;
+					in_comment = 1;
+					continue;
+				}
+			}
+		}
+
+		if (E.syn.flags & HGHLT_STRING) {
+			if (in_string) {
+				row->hl[i] = STRING;
+				if (c == '\\' && i + 1 < row->rsize) {
+					row->hl[i+1] = STRING;
+					i++;
+					continue;
+				}
+				if (i + 1 == row->rsize && (E.syn.flags & HGHLT_ML_STRINGS || c == '\\')) row->hl_open_string = 1;
+				if (c == in_string) in_string = 0;
+				prev_sep = 1;
+				continue;
+			}
+			else {
+				if (c == '"' || c == '\'') {
+					in_string = c;
+					row->hl[i] = STRING;
+					continue;
+				}
+			}
+		}
+
+		if (E.syn.flags & HGHLT_NUM) {
+			if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER)) {
+				row->hl[i] = NUMBER;
+				prev_sep = 0;
+				continue;
+			}
+		}
+		
+		if (prev_sep) {
+			int found = 0;
+			for (int j = 0; j < E.syn.keywordCount; j++) {
+				int klen = strlen(E.syn.keywords[j]);
+				if (!strncmp(&row->render[i],E.syn.keywords[j],klen)) {
+					memset(&row->hl[i], KEYWORD, klen);
+					found = 1;
+					i += klen-1;
+					prev_sep = 0;
+					break;
+				}
+			}
+			if (found) continue;
+			for (int j = 0; j < E.syn.typeCount; j++) {
+				int tlen = strlen(E.syn.types[j]);
+				if(!strncmp(&row->render[i],E.syn.types[j],tlen)) {
+					memset(&row->hl[i], TYPE, tlen);
+					found = 1;
+					i += tlen-1;
+					prev_sep = 0;
+					break;
+				}
+			}
+			if (found) continue;
+		}
+
+		prev_sep = isSeparator(c);		
+	}
+	int changed = (row->hl_open_comment != in_comment);
+	row->hl_open_comment = in_comment;
+	if (changed && row->ind + 1 < E.numrows)
+	editorUpdateSyntax(&E.row[row->ind + 1]);
+	redrawWholeScreen = 1;
+}
+
+int editorSyntaxToColor(int hl) {
+	if (E.colorful) {
+		switch (hl) {
+			case COMMENT: return CL_COMMENT;
+			case MATCH: return CL_MATCH;
+			case TYPE: return CL_TYPE;
+			case KEYWORD: return CL_KEYWORD;
+			case STRING: return CL_STRING;
+			case NUMBER: return CL_NUMBER;
+			default: return 39;
+		}
+	}	
+	switch (hl) {
+		case COMMENT: return 36;
+		case MATCH: return 35;
+		case TYPE: return 34;
+		case KEYWORD: return 33;
+		case STRING: return 32;
+		case NUMBER: return 31;
+		default: return 39;
 	}
 }

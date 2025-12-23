@@ -67,9 +67,20 @@ void editorDrawRows(struct abuf* ab) {
 					int len = E.row[filerow].rsize - E.coloff;
 					if (len < 0) len = 0;
 					if (len > E.screencols) len = E.screencols;
+					int current_color = 39; //default color
+					unsigned char* hl = &E.row[filerow].hl[E.coloff];
 					for (int j = 0; j < len; j++) {
+						int color = editorSyntaxToColor(hl[j]);
 						if (filerow == E.selected[0] && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[2])) {
 							abAppend(ab, "\x1b[47m", 5);
+						}
+						if (color != current_color) {
+							char buf[16];
+							int hlen;
+							if (E.colorful == 0 || color == 39) hlen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+							else hlen = snprintf(buf, sizeof(buf), "\x1b[38;5;%dm", color);
+							abAppend(ab, buf, hlen);
+							current_color = color;
 						}
 						abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
 						if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
@@ -498,6 +509,7 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('t'):
+			break;
 			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
 			else {
 				windowSetup(0, 20, 5, treeProcessKey, strdup("Tree"));

@@ -95,7 +95,6 @@ void undo() {
 		char text[curr->length+1];
 		text[curr->length] = 0;
 		for (int i = 0; i < curr->length; i++) text[i] = (curr->chars[i] == '\r') ? '|' : curr->chars[i];
-		editorSetStatusMessage("Hex: %02X %02X %02X %02X %02X %02X %02X %02X %02X", text[0], text[1], text[2], text[3], text[4], text[5], text[6], text[7], text[8]);
 		E.cx = x;
 		E.cy = y;
 		for (int i = curr->length - 1; i >= 0; i--) {
@@ -155,22 +154,65 @@ void freeTree(urTree* tree) {
 	freeNode(tree->root);
 }
 
-void drawNode(const urBlock* node, const char *prefix, int is_last) {
-	if (!node) return;
-	char line[256];
-	snprintf(line, sizeof(line), "%s%s o(x=%d, y=%d, len=%d)", prefix, is_last ? "`-" : "|-", node->start[0], node->start[1], node->length);
-	windowAddRow(line, E.win.numrows, strlen(line));
-	char new_prefix[256];
-	snprintf(new_prefix, sizeof(new_prefix), "%s%s  ", prefix, is_last ? "   " : "|  ");
-	for (int i = 0; i < node->childlen; i++) {
-		drawNode(node->children[i], new_prefix, i == node->childlen - 1);
+int findDepth(urBlock* node) {
+	if (node == NULL) return 0;
+	int depth = 0;
+	for ( int i = 0; i < node->childlen; i++) {
+		int temp = findDepth(node->children[i]);
+		depth = (temp > depth) ? temp : depth;
+	}
+	return depth+1;
+}
+
+void findNodesInRow(int* nodeInRow, urBlock* node, int currDepth) {
+	nodeInRow[currDepth] += node->childlen;
+	for ( int i = 0; i < node->childlen; i++) {
+		findNodesInRow(nodeInRow, node->children[i], currDepth+1);
+	}
+}
+
+void fillCanvas(int rows, int cols, char canvas[rows][cols], urBlock* node, int currDepth) {
+	int ind = 0;
+	while (canvas[currDepth][ind] != 0) ind++;
+	canvas[currDepth][ind] = '*';
+	for ( int i = 0; i < node->childlen; i++ ) {
+		int parentInd = ind;
+		if (canvas[currDepth+1][ind] == 0) canvas[currDepth+1][ind] = '|';
+		else {
+			ind++;
+			while (canvas[currDepth+1][ind] != 0) ind++;
+			canvas[currDepth+1][ind] = '\\';
+			for ( int j = 1; j < ind-parentInd; j++ ) canvas[currDepth][parentInd+j] = '-';
+		}
+		fillCanvas(rows, cols, canvas, node->children[i], currDepth+2);
+		ind = parentInd;
 	}
 }
 
 void drawTree() {
 	if (E.tree.root == NULL) return;
-	for (int i = 0; i < E.win.numrows/4; i++) windowAddRow(strdup(" "), i, 1);
-	drawNode(E.tree.root, "", 1);
+	int depth = findDepth(E.tree.root);
+	int nodesInRow[depth];
+	memset(nodesInRow, 0, depth*sizeof(int));
+	nodesInRow[0] = 1;
+	findNodesInRow(nodesInRow, E.tree.root, 1);
+	int max_len = 1;
+	for ( int i = 0; i < depth; i++ ) {
+		max_len = (nodesInRow[i] > max_len) ? nodesInRow[i] : max_len;
+	}
+	max_len *= 2;
+	char canvas[2*depth-1][max_len+1];
+	memset(canvas, 0, (max_len-1)*(2*depth-1));
+	fillCanvas(2*depth-1, max_len+1, canvas, E.tree.root, 0);
+	for ( int i = 1; i < 2*depth-1; i++ ) {
+		if (canvas[i][0] == 0) {
+			int ind = 0;
+			while ( ind < max_len+1 && canvas[i][ind] == 0 ) canvas[i][ind++] = ' ';
+		}
+	}
+	for ( int i = 0; i < depth; i++ ) {
+		windowAddRow(canvas[i], E.win.numrows, strlen(canvas[i]));
+	}
 }
 
 void treeProcessKey(int c) {
