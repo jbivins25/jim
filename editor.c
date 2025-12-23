@@ -557,7 +557,7 @@ int editorSyntaxToColor(int hl) {
 			case KEYWORD: return CL_KEYWORD;
 			case STRING: return CL_STRING;
 			case NUMBER: return CL_NUMBER;
-			default: return 39;
+			default: return 97;
 		}
 	}	
 	switch (hl) {
@@ -567,6 +567,6 @@ int editorSyntaxToColor(int hl) {
 		case KEYWORD: return 33;
 		case STRING: return 32;
 		case NUMBER: return 31;
-		default: return 39;
+		default: return 97;
 	}
 }

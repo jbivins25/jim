@@ -20,8 +20,7 @@
 #define HGHLT_STRING (1 << 1)
 #define HGHLT_SL_CM (1 << 2)
 #define HGHLT_ML_CM (1 << 3)
-#define HGHLT_PREPRC (1 << 4)
-#define HGHLT_ML_STRINGS (1 << 5)
+#define HGHLT_ML_STRINGS (1 << 4)
 //====================================
 
 enum editorKey {
