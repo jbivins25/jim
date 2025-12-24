@@ -8,7 +8,7 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.5.1"
+#define JIM_VERSION "1.5.3"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
@@ -21,6 +21,12 @@
 #define HGHLT_SL_CM (1 << 2)
 #define HGHLT_ML_CM (1 << 3)
 #define HGHLT_ML_STRINGS (1 << 4)
+//====================================
+
+//====================================
+// Redraw flags
+#define REDRAW_DEF (1 << 0)
+#define REDRAW_WIN (1 << 2)
 //====================================
 
 enum editorKey {

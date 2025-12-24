@@ -62,10 +62,10 @@ void editorDrawRows(struct abuf* ab) {
 		if ( redrawWholeScreen || redrawLine[y] ) {
 			abAppend(ab, def_fg, def_fg_len);
 			abAppend(ab, def_bg, def_bg_len);
-			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, ((!redrawWholeScreen || redrawLine[y] == 1) && E.win.active && E.win.location == 0) ? E.win.screencols+1 : 0);
+			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, ((!redrawWholeScreen || redrawLine[y] == REDRAW_DEF) && E.win.active && E.win.location == 0) ? E.win.screencols+1 : 0);
 			abAppend(ab, buf, strlen(buf));
-			if ( (redrawWholeScreen || redrawLine[y] == 2 || redrawLine[y] == 3) && (E.win.active && E.win.location == 0) ) drawWindow(ab, y);
-			if ( redrawWholeScreen || redrawLine[y] == 1 || redrawLine[y] == 3 ) {
+			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 0) ) drawWindow(ab, y);
+			if ( redrawWholeScreen || redrawLine[y] & REDRAW_DEF ) {
 				if (E.win.active && E.win.location == 1 && redrawLine[y] == 1) {
 					snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols);
 					abAppend(ab, buf, strlen(buf));
@@ -109,7 +109,7 @@ void editorDrawRows(struct abuf* ab) {
 				abAppend(ab,def_bg,def_bg_len); //Sets default background color
 				if (!E.win.active || !(E.win.location == 1) || redrawLine[y] != 1) abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
 			}
-			if ( (redrawWholeScreen || redrawLine[y] == 2 || redrawLine[y] == 3) && (E.win.active && E.win.location == 1) ) drawWindow(ab, y);
+			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 1) ) drawWindow(ab, y);
 			abAppend(ab, "\r\n", 2);
 			redrawLine[y] = 0;
 		}

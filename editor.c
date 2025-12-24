@@ -492,7 +492,10 @@ void editorUpdateSyntax(erow *row) {
 					continue;
 				}
 				if (i + 1 == row->rsize && (E.syn.flags & HGHLT_ML_STRINGS || c == '\\')) row->hl_open_string = 1;
-				if (c == in_string) in_string = 0;
+				if (c == in_string) {
+					in_string = 0;
+					row->hl_open_string = 0;
+				}
 				prev_sep = 1;
 				continue;
 			}

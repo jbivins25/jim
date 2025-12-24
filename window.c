@@ -3,6 +3,7 @@
 #include "window.h"
 #include "editor.h"
 #include "row.h"
+#include "palette.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,12 +39,30 @@ void clearWindow() {
 
 void drawWindow(struct abuf* ab, int y) {
 	char buf[32];
+	static int set = 1;
+	static char def_fg[8];
+	static int def_fg_len;
+	static char def_bg[8];
+	static int def_bg_len;
+	static char inv_bg[8];
+	static int inv_bg_len;
+	static char inv_fg[8];
+	static int inv_fg_len;
+	if (set) {
+		set = 0;
+		def_fg_len = snprintf(def_fg, sizeof(def_fg), "\x1b[%dm", DEF_FG);
+		def_bg_len = snprintf(def_bg, sizeof(def_fg), "\x1b[%dm", DEF_BG);
+		inv_bg_len = snprintf(inv_bg, sizeof(inv_bg), "\x1b[%dm", INV_BG);
+		inv_fg_len = snprintf(inv_fg, sizeof(inv_bg), "\x1b[%dm", INV_FG);
+	}
 	if (E.win.location == 1) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols+1);
 		abAppend(ab, buf, strlen(buf));
-		abAppend(ab, "\x1b[7m", 4);
+		abAppend(ab,inv_bg, inv_bg_len);
+		abAppend(ab,inv_fg, inv_fg_len);
 		abAppend(ab,"|",1);
-		abAppend(ab, "\x1b[m", 3);
+		abAppend(ab,def_bg, def_bg_len);
+		abAppend(ab,def_fg, def_fg_len);
 	}
 	else {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH\033[1K\r", y+1, E.win.screencols);
@@ -52,17 +71,21 @@ void drawWindow(struct abuf* ab, int y) {
 	int length = E.win.header ? strlen(E.win.header) : 0;
 	if (y == 0 &&  length < E.win.screencols ) {
 		int diff = E.win.screencols - 1 - length;
-		abAppend(ab, "\x1b[7m", 4);
+		abAppend(ab,inv_bg, inv_bg_len);
+		abAppend(ab,inv_fg, inv_fg_len);
 		for (int i = 0; i < diff/2; i++) abAppend(ab," ",1);
 		abAppend(ab, E.win.header, length);
 		diff = diff-(diff/2);
 		for (int i = 0; i < diff; i++) abAppend(ab," ",1);
-		abAppend(ab, "\x1b[m", 3);
+		abAppend(ab,def_bg, def_bg_len);
+		abAppend(ab,def_fg, def_fg_len);
 	}
 	else if (y == 0) {
-		abAppend(ab, "\x1b[7m", 4);
+		abAppend(ab,inv_bg, inv_bg_len);
+		abAppend(ab,inv_fg, inv_fg_len);
 		for (int i = 0; i < E.win.screencols - 1; i++ ) abAppend(ab," ",1);
-		abAppend(ab, "\x1b[m", 3);
+		abAppend(ab,def_bg, def_bg_len);
+		abAppend(ab,def_fg, def_fg_len);
 	}
 	else if ( (y-1 + E.win.yOffset) < E.win.numrows) {
 		int filerow = y-1 + E.win.yOffset;
@@ -75,9 +98,11 @@ void drawWindow(struct abuf* ab, int y) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.win.screencols);
 		abAppend(ab, buf, strlen(buf));
 		if (y > E.win.numrows) abAppend(ab, "\x1b[1K", 4);
-		abAppend(ab, "\x1b[7m", 4);
+		abAppend(ab,inv_bg, inv_bg_len);
+		abAppend(ab,inv_fg, inv_fg_len);
 		abAppend(ab,"|",1);
-		abAppend(ab, "\x1b[m", 3);		
+		abAppend(ab,def_bg, def_bg_len);
+		abAppend(ab,def_fg, def_fg_len);		
 	}
 	else abAppend(ab, "\x1b[K", 3);
 }
