@@ -20,6 +20,7 @@ void windowSetup(char location, int minCols, int divider, void (*winHandler)(int
 	E.win.handler = winHandler;
 	E.win.screenrows = E.screenrows;
 	E.win.screencols = E.screencols/divider;
+	memset(&E.win.syn,0,sizeof(editorSyntax));
 	E.screencols -= E.win.screencols;
 	E.win.row = NULL;
 	E.win.numrows = 0;
@@ -92,7 +93,19 @@ void drawWindow(struct abuf* ab, int y) {
 		int len = E.win.row[filerow].rsize - E.win.xOffset;
 		if (len < 0) len = 0;
 		if (len > E.win.screencols-1) len = E.win.screencols-1;
-		for (int j = 0; j < len; j++) {abAppend(ab, &E.win.row[filerow].render[E.win.xOffset + j], 1);}
+		int curr_color = DEF_FG;
+		for (int j = 0; j < len; j++) {
+			int color = editorSyntaxToColor(E.win.row[filerow].hl[E.win.xOffset + j]);
+			if (curr_color != color) {
+				char buf[16];
+				int hlen;
+				if (E.colorful == 0 || color == DEF_FG) hlen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+				else hlen = snprintf(buf, sizeof(buf), "\x1b[38;5;%dm", color);
+				abAppend(ab, buf, hlen);
+				curr_color = color;
+			}
+			abAppend(ab, &E.win.row[filerow].render[E.win.xOffset + j], 1);
+		}
 	}
 	if (E.win.location == 0) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.win.screencols);
@@ -122,7 +135,7 @@ int windowAddRow(char* text, int row, size_t len) {
 	E.win.row[row].hl = NULL;
 	E.win.row[row].hl_open_comment = 0;
 	E.win.row[row].hl_open_string = 0;
-	editorUpdateRow(&E.win.row[row]);
+	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
 	E.win.numrows++;
 	return 0;
 }
@@ -142,7 +155,7 @@ void windowSetRow(char* text, int row, size_t len) {
 	E.win.row[row].chars[len] = '\0';
 	E.win.row[row].rsize = 0;
 	E.win.row[row].render = NULL;
-	editorUpdateRow(&E.win.row[row]);
+	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
 }
 
 int maxLineSize() {
@@ -176,5 +189,73 @@ void windowPageScroll(int c) {
 		default:
 			break;
 	}
-	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) memset(redrawLine,2,E.win.screenrows);
+	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) {
+		for (int i = 0; i < E.win.screenrows; i++) {
+			redrawLine[i] |= REDRAW_WIN;
+		}
+	}
+}
+
+void windowLoadSyntax(char* filename) {
+	char* ext = strrchr(filename, '.');
+	if (!ext) return;
+	size_t len = strlen(++ext);
+	if (len < 1) return;
+	const char* home = getenv("HOME");
+	if (!home) home = "./";
+	char file[512];
+	snprintf(file, len+15+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
+	FILE* f = fopen(file,"r");
+	if (f == NULL) return;
+	E.win.syn.filetype = malloc(len+1);
+	strcpy(E.win.syn.filetype,ext);
+	char* line = NULL;
+	size_t cap = 0;
+	getline(&line, &cap, f);
+	sscanf(line, "%d %d", &E.win.syn.keywordCount, &E.win.syn.typeCount);
+	E.win.syn.keywords = malloc(sizeof(char*)*E.win.syn.keywordCount);
+	char* line_t;
+	for (int i = 0; i < E.win.syn.keywordCount; i++) {
+		len = getline(&line, &cap, f);
+		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		line_t = malloc(len+1);
+		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
+		line_t[len] = '\0';
+		E.win.syn.keywords[i] = line_t;
+	}
+	E.win.syn.types = malloc(sizeof(char*)*E.win.syn.typeCount);
+	for (int i = 0; i < E.win.syn.typeCount; i++) {
+		len = getline(&line, &cap, f);
+		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		line_t = malloc(len+1);
+		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
+		line_t[len] = '\0';
+		E.win.syn.types[i] = line_t;
+	}
+	getline(&line, &cap, f);
+	sscanf(line, "%d", &E.win.syn.flags);
+	if (E.win.syn.flags & HGHLT_SL_CM) {
+		len = getline(&line, &cap, f);
+		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		line_t = malloc(len+1);
+		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
+		line_t[len] = '\0';
+		E.win.syn.slComment = line_t;
+	}
+	if (E.win.syn.flags & HGHLT_ML_CM) {
+		len = getline(&line, &cap, f);
+		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		line_t = malloc(len+1);
+		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
+		line_t[len] = '\0';
+		E.win.syn.mlCommentStart = line_t;
+		len = getline(&line, &cap, f);
+		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		line_t = malloc(len+1);
+		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
+		line_t[len] = '\0';
+		E.win.syn.mlCommentEnd = line_t;
+	}
+	free(line);
+	fclose(f);
 }

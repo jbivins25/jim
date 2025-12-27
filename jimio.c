@@ -39,7 +39,9 @@ void editorScroll() {
 		E.coloff = E.rx - E.screencols + 1;
 	}
 	if (E.rowoff != init_rowoff || E.coloff != init_coloff) {
-		memset(redrawLine,1,E.screenrows);
+		for (int i = 0; i < E.screenrows; i++) {
+			redrawLine[i] |= REDRAW_DEF;
+		}
 	}
 }
 

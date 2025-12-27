@@ -103,7 +103,7 @@ void undo() {
 			else editorInsertNewlineUR();
 		}
 		for (int i = (y-E.rowoff < 0) ? 0 : y-E.rowoff; i < E.cy+1; i++) {
-			redrawLine[i] = (redrawLine[i] == 2 || redrawLine[i] == 3) ? 3 : 1;
+			redrawLine[i] |= REDRAW_DEF;
 		}
 	}
 	E.tree.curr = E.tree.curr->parent;
@@ -136,7 +136,7 @@ void redo() {
 			else editorInsertNewlineUR();
 		}
 		for (int i = (curr->start[1]-E.rowoff < 0) ? 0 : curr->start[1]-E.rowoff; i < E.cy+1; i++) {
-			redrawLine[i] = (redrawLine[i] == 2 || redrawLine[i] == 3) ? 3 : 1;
+			redrawLine[i] |= REDRAW_DEF;
 		}
 	}
 }

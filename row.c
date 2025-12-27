@@ -24,7 +24,7 @@ int editorRowRxToCx(erow *row, int rx) {
 	return cx;
 }
 
-void editorUpdateRow(erow *row) {
+void editorUpdateRow(erow *row, editorSyntax* syn, char mode) {
 	int tabs = 0;
 	int j;
 	for (j = 0; j < row->size; j++) {
@@ -44,7 +44,7 @@ void editorUpdateRow(erow *row) {
 	}
 	row->render[idx] = '\0';
 	row->rsize = idx;
-	editorUpdateSyntax(row);
+	editorUpdateSyntax(row, syn, mode);
 }
 
 void editorInsertRow(int at, char *s, size_t len) {
@@ -63,7 +63,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 	E.row[at].hl = NULL;
 	E.row[at].hl_open_comment = 0;
 	E.row[at].hl_open_string = 0;
-	editorUpdateRow(&E.row[at]);
+	editorUpdateRow(&E.row[at], &E.syn, NORMAL);
 	E.numrows++;
 	E.dirty++;
 }
@@ -89,7 +89,7 @@ void editorRowInsertChar(erow *row, int at, int c) {
 	memmove(&row->chars[at+1], &row->chars[at], row->size - at + 1);
 	row->size++;
 	row->chars[at] = c;
-	editorUpdateRow(row);
+	editorUpdateRow(row, &E.syn, NORMAL);
 	E.dirty++;
 }
 
@@ -98,7 +98,7 @@ void editorRowAppendString(erow* row, char* s, size_t len) {
 	memcpy(&row->chars[row->size], s, len);
 	row->size += len;
 	row->chars[row->size] = '\0';
-	editorUpdateRow(row);
+	editorUpdateRow(row, &E.syn, NORMAL);
 	E.dirty++;
 }
 
@@ -106,6 +106,6 @@ void editorRowDelChar(erow *row, int at) {
 	if (at < 0 || at >= row->size) return;
 	memmove(&row->chars[at], &row->chars[at + 1], row->size - at); //Just shift row over from at+1 onto at
 	row->size--;
-	editorUpdateRow(row);
+	editorUpdateRow(row, &E.syn, NORMAL);
 	E.dirty++;
 }

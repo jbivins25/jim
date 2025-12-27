@@ -9,5 +9,6 @@ int windowAddRow(char* text, int row, size_t len);
 void windowDelRow(int row);
 void windowSetRow(char* text, int row, size_t len);
 void windowPageScroll(int c);
+void windowLoadSyntax(char* filename);
 
 #endif

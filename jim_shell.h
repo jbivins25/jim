@@ -76,11 +76,21 @@ int jim_shell(const int argc, const char* args[]) {
 	char* line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
+	int prev_numrows = E.win.numrows;
 	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
 		windowAddRow(line, E.win.numrows, linelen);
-		if (E.win.numrows-E.win.yOffset >= E.win.screenrows) {E.win.yOffset++; memset(redrawLine, 2, E.win.screenrows);}
-		else redrawLine[E.win.numrows-E.win.yOffset] = (redrawLine[E.win.numrows-E.win.yOffset] == 1 || redrawLine[E.win.numrows-E.win.yOffset] == 3) ? 3 : 2;
+	}
+	if (E.win.numrows-E.win.yOffset+1 >= E.win.screenrows) {
+		E.win.yOffset += E.win.numrows-E.win.yOffset+1;
+		for (int i = 0; i < E.win.screenrows; i++) {
+			redrawLine[i] |= REDRAW_WIN;
+		}
+	}
+	else {
+		for (int i = prev_numrows-E.win.yOffset; i < E.win.screenrows; i++) {
+			redrawLine[i] |= REDRAW_WIN;
+		}
 	}
 	free(line);
 	fclose(fp);

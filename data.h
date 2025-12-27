@@ -8,7 +8,7 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.5.3"
+#define JIM_VERSION "1.5.4"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
@@ -26,7 +26,7 @@
 //====================================
 // Redraw flags
 #define REDRAW_DEF (1 << 0)
-#define REDRAW_WIN (1 << 2)
+#define REDRAW_WIN (1 << 1)
 //====================================
 
 enum editorKey {
@@ -79,11 +79,24 @@ typedef struct erow {
 typedef void (*winHandler) (int c);
 
 typedef struct {
+	char* filetype;
+	char** keywords;
+	char** types;
+	char* slComment;
+	char* mlCommentStart;
+	char* mlCommentEnd;
+	int keywordCount;
+	int typeCount;
+	int flags;
+} editorSyntax;
+
+typedef struct {
 	char active, location;
 	int minCols, screencols, screenrows;
 	int cx, cy, xOffset, yOffset;
 	winHandler handler;
 	erow* row;
+	editorSyntax syn;
 	int divider;
 	int numrows;
 	char* header;
@@ -104,18 +117,6 @@ typedef struct {
 	urBlock* root;
 	urBlock* curr;
 } urTree;
-
-typedef struct {
-	char* filetype;
-	char** keywords;
-	char** types;
-	char* slComment;
-	char* mlCommentStart;
-	char* mlCommentEnd;
-	int keywordCount;
-	int typeCount;
-	int flags;
-} editorSyntax;
 
 struct editorConfig {
 	int cx, cy;
