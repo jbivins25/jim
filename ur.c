@@ -171,10 +171,11 @@ void findNodesInRow(int* nodeInRow, urBlock* node, int currDepth) {
 	}
 }
 
-void fillCanvas(int rows, int cols, char canvas[rows][cols], urBlock* node, int currDepth) {
+void fillCanvas(int rows, int cols, char canvas[rows][cols], urBlock* node, int currDepth, int* hlght_row, int* hlght_col) {
 	int ind = 0;
 	while (canvas[currDepth][ind] != 0) ind++;
 	canvas[currDepth][ind] = '*';
+	if (E.tree.curr == node) {*hlght_row = currDepth; *hlght_col = ind;}
 	for ( int i = 0; i < node->childlen; i++ ) {
 		int parentInd = ind;
 		if (canvas[currDepth+1][ind] == 0) canvas[currDepth+1][ind] = '|';
@@ -184,7 +185,7 @@ void fillCanvas(int rows, int cols, char canvas[rows][cols], urBlock* node, int 
 			canvas[currDepth+1][ind] = '\\';
 			for ( int j = 1; j < ind-parentInd; j++ ) canvas[currDepth][parentInd+j] = '-';
 		}
-		fillCanvas(rows, cols, canvas, node->children[i], currDepth+2);
+		fillCanvas(rows, cols, canvas, node->children[i], currDepth+2, hlght_row, hlght_col);
 		ind = parentInd;
 	}
 }
@@ -195,15 +196,17 @@ void drawTree() {
 	int nodesInRow[depth];
 	memset(nodesInRow, 0, depth*sizeof(int));
 	nodesInRow[0] = 1;
-	findNodesInRow(nodesInRow, E.tree.root, 1);
+	findNodesInRow(nodesInRow, E.tree.root, 0);
 	int max_len = 1;
 	for ( int i = 0; i < depth; i++ ) {
 		max_len = (nodesInRow[i] > max_len) ? nodesInRow[i] : max_len;
 	}
 	max_len *= 2;
 	char canvas[2*depth-1][max_len+1];
-	memset(canvas, 0, (max_len-1)*(2*depth-1));
-	fillCanvas(2*depth-1, max_len+1, canvas, E.tree.root, 0);
+	memset(canvas, 0, (max_len+1)*(2*depth-1));
+	int hlght_row;
+	int hlght_col;
+	fillCanvas(2*depth-1, max_len+1, canvas, E.tree.root, 0, &hlght_row, &hlght_col);
 	for ( int i = 1; i < 2*depth-1; i++ ) {
 		if (canvas[i][0] == 0) {
 			int ind = 0;
@@ -213,12 +216,14 @@ void drawTree() {
 	for ( int i = 0; i < depth; i++ ) {
 		windowAddRow(canvas[i], E.win.numrows, strlen(canvas[i]));
 	}
+	E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
 }
 
 void treeProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
 	switch(c) {
 		case CTRL_KEY('w'):
+			clearWindow();
 			E.mode = NORMAL;
 			break;
 
@@ -233,6 +238,7 @@ void treeProcessKey(int c) {
 			exit(0);
 			break;
 
+		case CTRL_KEY('t'):
 		case '\x1b':
 			clearWindow();
 			E.mode = NORMAL;

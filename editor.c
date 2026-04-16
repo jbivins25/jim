@@ -233,11 +233,14 @@ void editorMoveLine() {
 		E.cx = 0;
 		E.cy = line-1;
 	}	
-	redrawWholeScreen = 1;
+	for (int i = 0; i < E.screenrows; i++) {
+		redrawLine[i] |= REDRAW_DEF;
+	}
 }
 
 void editorPaste() {
 	size_t size = 0;
+	int prev_cx = E.cx;
 	while (E.cpbuffer[size] != '\0') {
 		if (E.cy == E.numrows) {
 			editorInsertRow(E.numrows,"",0);
@@ -249,12 +252,18 @@ void editorPaste() {
 			size++;
 		}
 	}	
-	redrawWholeScreen = 1;
+	int start = prev_cx - E.rowoff;
+	if (start < 0) start = 0;
+	int end = E.cx - E.rowoff + 1;
+	for (int i = start; i < end; i++) {
+		redrawLine[i] |= REDRAW_DEF;
+	}
 }
 
 void editorDelSelect() {
 	E.cy = E.selected[0];
 	E.cx = E.selected[2];
+	int prev_cx = E.cx;
 	int init_row_size = E.row[E.cy].size;
 	if (E.selected[0] != E.selected[1] && E.row[E.selected[1]].size-1 == E.selected[3]) editorDelRow(E.selected[0]+1);
 	else if (E.selected[0] != E.selected[1]) {
@@ -278,7 +287,12 @@ void editorDelSelect() {
 			editorRowDelChar(&E.row[E.selected[0]], i);
 		}
 	}
-	redrawWholeScreen = 1;
+	int start = E.cx - E.rowoff;
+	int end = prev_cx - E.rowoff;
+	if (end > E.screenrows) end = E.screenrows;
+	for (int i = start; i < end; i++) {
+		redrawLine[i] |= REDRAW_DEF;
+	}
 }
 
 void editorInsertChar(int c) {
@@ -492,7 +506,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 		}
 
 		if (syn->flags & HGHLT_NUM) {
-			if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER)) {
+			if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || (c == 'f' && prev_hl == NUMBER)) {
 				row->hl[i] = NUMBER;
 				prev_sep = 0;
 				continue;
@@ -503,7 +517,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			int found = 0;
 			for (int j = 0; j < syn->keywordCount; j++) {
 				int klen = strlen(syn->keywords[j]);
-				if (!strncmp(&row->render[i],syn->keywords[j],klen) && (i+klen < row->rsize && isSeparator(row->render[i+klen]))) {
+				if (!strncmp(&row->render[i],syn->keywords[j],klen) && (i+klen <= row->rsize && isSeparator(row->render[i+klen]))) {
 					memset(&row->hl[i], KEYWORD, klen);
 					found = 1;
 					i += klen-1;
@@ -514,7 +528,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			if (found) continue;
 			for (int j = 0; j < syn->typeCount; j++) {
 				int tlen = strlen(syn->types[j]);
-				if(!strncmp(&row->render[i],syn->types[j],tlen) && (i+tlen < row->rsize && isSeparator(row->render[i+tlen]))) {
+				if(!strncmp(&row->render[i],syn->types[j],tlen) && (i+tlen <= row->rsize && isSeparator(row->render[i+tlen]))) {
 					memset(&row->hl[i], TYPE, tlen);
 					found = 1;
 					i += tlen-1;

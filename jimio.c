@@ -446,6 +446,7 @@ void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
+	//if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}
 
 	switch(c) {
 		case '\r': // CTRL_KEY('m') maps to this
@@ -473,7 +474,7 @@ void editorProcessKeypress() {
 			if (E.mode != WINDOW && E.win.active && E.win.handler) E.mode = WINDOW;
 			else if (E.win.active && !E.win.handler) clearWindow();
 			else E.mode = NORMAL;
-			break; //Todo: window mode
+			break;
 
 		case CTRL_KEY('e'):
 			if (E.mode == SELECT) {editorHghlt(c); break;}
@@ -534,7 +535,7 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('t'):
-			break;
+			//break;
 			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
 			else {
 				windowSetup(0, 20, 5, treeProcessKey, strdup("Tree"));
