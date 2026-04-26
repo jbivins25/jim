@@ -381,37 +381,28 @@ void editorMatchMark() {
 }
 
 void editorMoveCursor(int key) {
+	static int sticky = 0;
 	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	switch (key) {
 		case ARROW_LEFT:
 			if (E.cx != 0) {
 				E.cx--;
 			}
-			else if ( E.cy > 0 && E.mode == NORMAL ) {
+			else if (E.cy > 0) {
 				E.cy--;
 				E.cx = E.row[E.cy].size;
 			}
-			else if ( E.cy > 0 && E.mode == SELECT ) {
-				E.cy--;
-				E.cx = E.row[E.cy].size-1;
-				if (E.cx < 0) E.cx = 0;
-			}
+			sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_RIGHT:
-			if (row && E.cx < row->size && E.mode == NORMAL) {
+			if (row && E.cx < row->size) {
 				E.cx++;
 			}
-			else if (row && E.cx < row->size-1 && E.mode == SELECT) {
-				E.cx++;
-			}
-			else if (row && E.cx == row->size && E.mode == NORMAL) {
+			else if (row) {
 				E.cy++;
 				E.cx = 0;
 			}
-			else if (row && (E.cx == row->size-1 || (E.cx == 0 && E.cx == row->size)) && E.mode == SELECT) {
-				E.cy++;
-				E.cx = 0;
-			}
+			sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_UP:
 			if (E.cy != 0) {
@@ -419,24 +410,19 @@ void editorMoveCursor(int key) {
 			}
 			break;
 		case ARROW_DOWN:
-			if (E.cy < E.numrows && E.mode == NORMAL) {
-				E.cy++;
-			}
-			else if (E.cy < E.numrows-1 && E.mode == SELECT) {
+			if (row) {
 				E.cy++;
 			}
 			break;
 	}
 	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	int rowlen = row ? row->size : 0;
-	if (E.cx > rowlen && E.mode == NORMAL) { //Snap cursor back to end of line
-		E.cx = rowlen;
+	if (key == ARROW_UP || key == ARROW_DOWN) {
+		if (E.rx < sticky) E.rx = sticky;
+		E.cx = row ? editorRowRxToCx(row, E.rx) : 0;
 	}
-	else if (E.cx > rowlen && E.mode == SELECT) {
-		if (rowlen > 0) {
-			E.cx = rowlen-1;
-		}
-		else E.cx = rowlen;
+	if (E.cx > rowlen) { //Snap cursor back to end of line
+		E.cx = rowlen;
 	}
 	E.rx = row ? editorRowCxToRx(row, E.cx) : 0;
 }
@@ -446,16 +432,14 @@ void editorProcessKeypress() {
 	int c = editorReadKey();
 
 	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
-	//if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}
+	if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}
 
 	switch(c) {
 		case '\r': // CTRL_KEY('m') maps to this
-			if (E.mode == SELECT) editorHghlt(c);
 			editorInsertNewline();
 			break;
 
 		case CTRL_KEY('q'):
-			if (E.mode == SELECT) editorHghlt(c);
 			if (E.dirty && quit_times > 0) {
 				editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
 				quit_times--;
@@ -477,7 +461,6 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('e'):
-			if (E.mode == SELECT) {editorHghlt(c); break;}
 			E.mode = SELECT;
 			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
 			for (int i = 0; i < 4; i++) {
@@ -497,40 +480,30 @@ void editorProcessKeypress() {
 			break;
 
 		case CTRL_KEY('y'):
-			if (E.mode == SELECT) break;
 			redo();
 			break; //Todo: redo
 
 		case CTRL_KEY('z'):
-			if (E.mode == SELECT) break;
 			undo();
 			break; //Todo: undo
 
 		case CTRL_KEY('c'):
-			if (E.mode == SELECT) editorHghlt(c);
 			break;
 
 		case CTRL_KEY('v'):
 			if (E.cpbuffer == NULL) break;
-			if (E.mode == SELECT) {
-				editorDelSelect();
-				exitSelect();
-			}
 			editorPaste();
 			break;
 
 		case CTRL_KEY('p'): 
-			if (E.mode == SELECT) editorHghlt(c);
 			editorMatchMark();
 			break;
 
 		case CTRL_KEY('f'):
-			if (E.mode == SELECT) break;
 			editorFind();
 			break;
 
 		case CTRL_KEY('l'):
-			if (E.mode == SELECT) break;
 			editorMoveLine();
 			break;
 
@@ -557,13 +530,11 @@ void editorProcessKeypress() {
 			break;
             
 		case HOME_KEY:
-			if (E.mode == SELECT) editorHghlt(c);
 			E.cx = 0;
 			break;
 
 		case END_KEY:
 			if (E.cy < E.numrows) {
-				if (E.mode == SELECT) editorHghlt(c);
 				E.cx = E.row[E.cy].size;
 			}
 			break;
@@ -571,14 +542,12 @@ void editorProcessKeypress() {
 		case BACKSPACE:
 		case CTRL_KEY('h'):
 		case DEL_KEY: 
-			if (E.mode == SELECT) {editorHghlt(c); break;}
 			if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
 			editorDelChar();
 			break;
 
 		case PAGE_UP:
 		case PAGE_DOWN:
-			if (E.mode == SELECT) break; 
 			{ //Need local scope to declare variable
 				if (c == PAGE_UP) {
 					E.cy = E.rowoff;
@@ -589,8 +558,7 @@ void editorProcessKeypress() {
 				}
 
 				int times = E.screenrows;
-				while (times--)
-					editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+				while (times--) editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
 			}
 			break;
 		
@@ -599,16 +567,13 @@ void editorProcessKeypress() {
 		case ARROW_LEFT:
 		case ARROW_RIGHT:
 			editorMoveCursor(c);
-			if (E.mode == SELECT) editorHghlt(c);
 			break;
 
 		case '\x1b':
-			if (E.mode == SELECT) editorHghlt(c);
-			else editorCommand();
+			editorCommand();
 			break;
 
 		default:
-			if (E.mode == SELECT) break;
 			editorInsertChar(c);
 			break;
 	}

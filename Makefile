@@ -16,7 +16,7 @@ jim: setup_env ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o comm
 ab.o: ab.c ab.h
 	$(CC) $(CFLAGS) -c ab.c
 
-command.o: command.c command.h config.h
+command.o: command.c command.h config.h jim_commands/*.h
 	$(CC) $(CFLAGS) -c command.c
 
 editor.o: editor.c editor.h data.h row.h jimio.h palette.h
@@ -51,7 +51,7 @@ setup_env:
 	@echo Setting up environment...
 	mkdir -p ~/bin
 	mkdir -p ~/.jim
-	cp jim_*.syn ~/.jim/.
+	cp jim_syn/jim_*.syn ~/.jim/.
 	@echo Compiling...
 
 clean:
