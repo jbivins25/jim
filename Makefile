@@ -10,7 +10,7 @@ jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o 
 	$(CC) $(CFLAGS) *.o -o jim
 
 jim: setup_env ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
-	$(CC) $(CFLAGS) *.o -o ~/bin/jim
+	$(CC) $(CFLAGS) -g -fsanitize=address *.o -o ~/bin/jim
 	@echo Done!
 
 ab.o: ab.c ab.h

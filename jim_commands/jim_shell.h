@@ -5,11 +5,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "data.h"
-#include "window.h"
-#include "jimio.h"
-#include "terminal.h"
-#include "command.h"
+#include "../data.h"
+#include "../window.h"
+#include "../jimio.h"
+#include "../terminal.h"
+#include "../command.h"
 
 void shellProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;

@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "data.h"
-#include "window.h"
-#include "jimio.h"
+#include "../data.h"
+#include "../window.h"
+#include "../jimio.h"
 
 void catProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;

@@ -140,6 +140,7 @@ struct editorConfig {
 	urTree tree;
 	char urType;
 	int colorful;
+	int sticky;
 };
 
 extern struct editorConfig E;

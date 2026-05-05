@@ -381,7 +381,6 @@ void editorMatchMark() {
 }
 
 void editorMoveCursor(int key) {
-	static int sticky = 0;
 	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	switch (key) {
 		case ARROW_LEFT:
@@ -392,7 +391,7 @@ void editorMoveCursor(int key) {
 				E.cy--;
 				E.cx = E.row[E.cy].size;
 			}
-			sticky = editorRowCxToRx(row,E.cx);
+			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_RIGHT:
 			if (row && E.cx < row->size) {
@@ -402,7 +401,7 @@ void editorMoveCursor(int key) {
 				E.cy++;
 				E.cx = 0;
 			}
-			sticky = editorRowCxToRx(row,E.cx);
+			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_UP:
 			if (E.cy != 0) {
@@ -418,7 +417,7 @@ void editorMoveCursor(int key) {
 	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	int rowlen = row ? row->size : 0;
 	if (key == ARROW_UP || key == ARROW_DOWN) {
-		if (E.rx < sticky) E.rx = sticky;
+		if (E.rx < E.sticky) E.rx = E.sticky;
 		E.cx = row ? editorRowRxToCx(row, E.rx) : 0;
 	}
 	if (E.cx > rowlen) { //Snap cursor back to end of line
@@ -463,10 +462,8 @@ void editorProcessKeypress() {
 		case CTRL_KEY('e'):
 			E.mode = SELECT;
 			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
-			for (int i = 0; i < 4; i++) {
-				if (i == 0 || i == 1)  E.selected[i] = E.cy;
-				else E.selected[i] = E.cx;
-			}
+			E.selected[0] = E.selected[1] = E.cy;
+			E.selected[2] = E.selected[3] = E.cx;
 			break;
 
 		case CTRL_KEY('a'):

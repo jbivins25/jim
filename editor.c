@@ -22,8 +22,6 @@ void exitSelect() {
 }
 
 void selectMoveCursor(int key) {
-	static int sticky = 0;
-	sticky = (sticky > E.rx) ? sticky : E.rx;
 	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	switch (key) {
 		case ARROW_LEFT:
@@ -34,7 +32,7 @@ void selectMoveCursor(int key) {
 				E.cy--;
 				E.cx = E.row[E.cy].size-1;
 			}
-			sticky = editorRowCxToRx(row,E.cx);
+			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_RIGHT:
 			if (row && E.cx < row->size-1) {
@@ -44,7 +42,7 @@ void selectMoveCursor(int key) {
 				E.cy++;
 				E.cx = 0;
 			}
-			sticky = editorRowCxToRx(row,E.cx);
+			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_UP:
 			if (E.cy != 0) {
@@ -60,7 +58,7 @@ void selectMoveCursor(int key) {
 	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 	int rowlen = row ? row->size-1 : 0;
 	if (key == ARROW_UP || key == ARROW_DOWN) {
-		if (E.rx < sticky) E.rx = sticky;
+		if (E.rx < E.sticky) E.rx = E.sticky;
 		E.cx = row ? editorRowRxToCx(row, E.rx) : 0;
 	}
 	if (E.cx > rowlen) { //Snap cursor back to end of line
@@ -231,7 +229,6 @@ void editorPaste() {
 }
 
 void editorDelSelect() {
-	int prev_cy = E.cy;
 	E.cy = E.selected[0];
 	E.cx = E.selected[2];
 	for ( int i = E.selected[1]-1; i > E.selected[0]; i-- ) {
@@ -242,19 +239,19 @@ void editorDelSelect() {
 		for ( int i = E.selected[3]; i >= E.selected[2]; i-- ) editorRowDelChar(&E.row[E.selected[0]], i);
 	}
 	else {
-		for ( int i = E.row[E.selected[0]].size; i >= E.selected[2]; i-- ) {
+		for ( int i = E.row[E.selected[0]].size-1; i >= E.selected[2]; i-- ) {
 			editorRowDelChar(&E.row[E.selected[0]], i);
 		}
+		if (E.selected[3] > E.row[E.selected[1]].size-1) E.selected[3] = E.row[E.selected[1]].size-1;
 		for ( int i = E.selected[3]; i >= 0; i-- ) {
 			editorRowDelChar(&E.row[E.selected[1]], i);
 		}
 		erow* row = &E.row[E.selected[1]];
-		editorRowAppendString(&E.row[E.selected[0]], row->chars, row->size);
+		if (row->size > 0) editorRowAppendString(&E.row[E.selected[0]], row->chars, row->size);
 		editorDelRow(E.selected[1]);
 	}
 	int start = E.cy - E.rowoff;
-	int end = (prev_cy == E.cy) ? E.cy + 1 : E.screenrows;
-	for (int i = start; i < end; i++) {
+	for (int i = start; i < E.screenrows; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
 }
@@ -277,6 +274,7 @@ void editorInsertChar(int c) {
 	else appendUrChar(c);
 	E.urType = WRITE;
 	E.cx++;
+	E.sticky = editorRowCxToRx(&E.row[E.cy],E.cx);
 	if (E.cy-E.rowoff < 0) return;
 	redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
 }
@@ -369,6 +367,7 @@ void editorDelChar() {
 		if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
 		else appendUrChar('\r');
 	}
+	E.sticky = editorRowCxToRx(row, E.cx);
 	E.urType = DELETE;
 }
 
@@ -393,6 +392,7 @@ void editorDelCharUR() {
 			redrawLine[i] |= REDRAW_DEF;
 		}
 	}
+	E.sticky = editorRowCxToRx(row, E.cx);
 }
 
 int isSeparator(int c) {

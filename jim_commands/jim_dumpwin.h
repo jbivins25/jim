@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "data.h"
-#include "jimio.h"
+#include "../data.h"
+#include "../jimio.h"
 
 int jim_dumpwin(const int argc, const char* args[]) {
 	(void)argc;

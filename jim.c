@@ -141,6 +141,7 @@ void initEditor() {
 	const char *term = getenv("TERM");
 	if (!term) E.colorful =  0;
 	else E.colorful = strstr(term, "256color") != NULL;
+	E.sticky = 0;
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
