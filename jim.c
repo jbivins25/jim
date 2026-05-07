@@ -167,6 +167,7 @@ static void win_sighandler(int sig) {
 
 int main(int argc, char *argv[]) {
 	enableRawMode();
+	setupCrashHandler();
 	initEditor();
 	atexit(freeEditor);
 	signal(SIGWINCH, win_sighandler);

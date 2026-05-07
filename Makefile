@@ -1,50 +1,41 @@
+.DEFAULT_GOAL = debug
 CC = gcc
-CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic
+CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
+SRCS=ab.c command.c editor.c fileio.c find.c jim.c jimio.c row.c terminal.c ur.c window.c
+DEBUG_DIR = build/debug
+RELEASE_DIR = build/release
 
-local: jim_loc
+DEBUG_OBJS = $(patsubst %.c, $(DEBUG_DIR)/%.o, $(SRCS))
+RELEASE_OBJS = $(patsubst %.c, $(RELEASE_DIR)/%.o, $(SRCS))
 
-debug: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
-	gcc -g -fsanitize=address -o jim *.o
+-include $(DEBUG_OBJS:.o=.d)
+-include $(RELEASE_OBJS:.o=.d)
 
-jim_loc: ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
-	$(CC) $(CFLAGS) *.o -o jim
+debug: CFLAGS = -ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
+debug: $(DEBUG_DIR)/jim
+	cp $^ jim
 
-jim: setup_env ab.o editor.o fileio.o find.o jim.o jimio.o row.o terminal.o command.o window.o ur.o
-	$(CC) $(CFLAGS) -g -fsanitize=address *.o -o ~/bin/jim
+release: CFLAGS = -O2 -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic
+release: setup_env $(RELEASE_DIR)/jim
+	cp $(RELEASE_DIR)/jim ~/bin/.jim
 	@echo Done!
 
-ab.o: ab.c ab.h
-	$(CC) $(CFLAGS) -c ab.c
+drelease: CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
+drelease: setup_env $(DEBUG_DIR)/jim
+	cp $(DEBUG_DIR)/jim ~/bin/.jim
+	@echo Done!
 
-command.o: command.c command.h config.h jim_commands/*.h
-	$(CC) $(CFLAGS) -c command.c
+$(DEBUG_DIR)/jim: $(DEBUG_OBJS)
+	gcc $(CFLAGS) -o $@ $^
 
-editor.o: editor.c editor.h data.h row.h jimio.h palette.h
-	$(CC) $(CFLAGS) -c editor.c
+$(RELEASE_DIR)/jim: $(RELEASE_OBJS)
+	gcc $(CFLAGS) -o $@ $^
 
-fileio.o: fileio.c fileio.h data.h jimio.h row.h
-	$(CC) $(CFLAGS) -c fileio.c
+$(DEBUG_DIR)/%.o: %.c | $(DEBUG_DIR)
+	gcc $(CFLAGS) -MMD -MP -c -o $@ $<
 
-find.o: find.c find.h data.h jimio.h row.h
-	$(CC) $(CFLAGS) -c find.c
-
-jim.o: jim.c data.h fileio.h jimio.h row.h terminal.h
-	$(CC) $(CFLAGS) -c jim.c
-
-jimio.o: jimio.c jimio.h data.h ab.h editor.h fileio.h find.h row.h terminal.h window.h
-	$(CC) $(CFLAGS) -c jimio.c
-
-row.o: row.c row.h data.h
-	$(CC) $(CFLAGS) -c row.c
-
-terminal.o: terminal.c terminal.h data.h
-	$(CC) $(CFLAGS) -c terminal.c
-
-ur.o: ur.c ur.h data.h
-	$(CC) $(CFLAGS) -c ur.c
-
-window.o: window.c window.h data.h
-	$(CC) $(CFLAGS) -c window.c
+$(RELEASE_DIR)/%.o: %.c | $(RELEASE_DIR)
+	gcc $(CFLAGS) -MMD -MP -c -o $@ $<
 
 setup_env:
 	@echo Installing jim...
@@ -54,5 +45,11 @@ setup_env:
 	cp jim_syn/jim_*.syn ~/.jim/.
 	@echo Compiling...
 
+$(DEBUG_DIR):
+	mkdir -p $(DEBUG_DIR)
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)
+
 clean:
-	rm -f jim *.o
+	rm -rf jim build

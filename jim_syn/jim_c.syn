@@ -1,4 +1,4 @@
-44 9
+45 9
 auto
 break
 case
@@ -43,6 +43,7 @@ _Thread_local
 #ifdef
 #elif
 #undef
+#else
 char
 double
 float

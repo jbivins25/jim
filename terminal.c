@@ -5,6 +5,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define ASAN_ENABLED
+#endif
+#elif defined(__SANITIZE_ADDRESS__)
+#define ASAN_ENABLED
+#endif
+#ifdef ASAN_ENABLED
+#include <sanitizer/asan_interface.h>
+#include <fcntl.h>
+#endif
 
 void die(const char *s) {
 	disableRawMode();
@@ -119,4 +130,61 @@ int getWindowSize(int* rows, int* cols) {
 		*rows = ws.ws_row;
 		return 0;
 	}
+}
+
+#ifdef ASAN_ENABLED
+
+static int asan_log_fd = -1;
+
+void setupAsanLog() {
+	asan_log_fd = open("/tmp/jim_asan.log", O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (asan_log_fd != -1) __sanitizer_set_report_fd((void*)(long)asan_log_fd);
+}
+
+void asanDeathCallback() {
+	disableRawMode();
+	write(STDOUT_FILENO, "\x1b[?1049l", 8);
+//	write(STDERR_FILENO, "\r\n", 2);
+
+	if (asan_log_fd != -1) {
+		close(asan_log_fd);
+		int fd = open("/tmp/jim_asan.log", O_RDONLY);
+		if (fd != -1) {
+			char buf[4096];
+			int n;
+			while ((n = read(fd, buf, sizeof(buf))) > 0) write(STDERR_FILENO, buf, n);
+			close(fd);
+		}
+	}
+}
+
+#else
+
+void crashHandler(int sig, siginfo_t* info, void* ctx) {
+	(void)ctx;
+	(void)info;
+	disableRawMode();
+	write(STDOUT_FILENO, "\x1b[2J", 4);
+	write(STDOUT_FILENO, "\x1b[H", 3);
+	write(STDOUT_FILENO, "\x1b[?1049l", 8);
+	signal(sig, SIG_DFL);
+	raise(sig);
+}
+
+#endif
+
+void setupCrashHandler() {
+#ifdef ASAN_ENABLED
+	setupAsanLog();
+	__sanitizer_set_death_callback(asanDeathCallback);
+#else
+	struct sigaction sa;
+	sa.sa_sigaction = crashHandler;
+	sa.sa_flags = SA_SIGINFO;
+	sigemptyset(&sa.sa_mask);
+
+	sigaction(SIGBUS, &sa, NULL);
+	sigaction(SIGSEGV, &sa, NULL);
+	sigaction(SIGABRT, &sa, NULL);
+#endif
 }

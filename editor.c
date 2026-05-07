@@ -231,26 +231,31 @@ void editorPaste() {
 void editorDelSelect() {
 	E.cy = E.selected[0];
 	E.cx = E.selected[2];
-	for ( int i = E.selected[1]-1; i > E.selected[0]; i-- ) {
-		editorDelRow(i);
-		E.selected[1]--;
-	}
 	if (E.selected[0] == E.selected[1]) {
 		for ( int i = E.selected[3]; i >= E.selected[2]; i-- ) editorRowDelChar(&E.row[E.selected[0]], i);
 	}
 	else {
-		for ( int i = E.row[E.selected[0]].size-1; i >= E.selected[2]; i-- ) {
-			editorRowDelChar(&E.row[E.selected[0]], i);
-		}
-		if (E.selected[3] > E.row[E.selected[1]].size-1) E.selected[3] = E.row[E.selected[1]].size-1;
+		int initialSize = E.row[E.selected[0]].size-1;
+		if (E.selected[3] > E.row[E.selected[1]].size-1 && E.row[E.selected[1]].size > 0) E.selected[3] = E.row[E.selected[1]].size-1;
 		for ( int i = E.selected[3]; i >= 0; i-- ) {
 			editorRowDelChar(&E.row[E.selected[1]], i);
 		}
+
+		for ( int i = E.selected[1]-1; i > E.selected[0]; i-- ) {
+			editorDelRow(i);
+			E.selected[1]--;
+		}
+
 		erow* row = &E.row[E.selected[1]];
 		if (row->size > 0) editorRowAppendString(&E.row[E.selected[0]], row->chars, row->size);
 		editorDelRow(E.selected[1]);
+
+		row = &E.row[E.selected[0]];
+		for ( int i = initialSize; i >= E.selected[2]; i-- ) {
+			editorRowDelChar(row, i);
+		}
 	}
-	int start = E.cy - E.rowoff;
+	int start = (E.cy - E.rowoff < 0) ? 0 : E.cy - E.rowoff;
 	for (int i = start; i < E.screenrows; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
