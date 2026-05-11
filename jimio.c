@@ -229,6 +229,8 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 
 void editorMatchMark() {
 	char init = E.row[E.cy].chars[E.cx];
+	int initX = E.cx;
+	int initY = E.cy;
 	char* currchars = E.row[E.cy].chars;
 	int stack = 1;
 	char charStack = 0;

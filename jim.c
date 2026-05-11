@@ -138,6 +138,7 @@ void initEditor() {
 	E.syn = (editorSyntax){NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0};
 	initTree(&E.tree);
 	E.urType = NULL_UR;
+	E.urMode = 1;
 	const char *term = getenv("TERM");
 	if (!term) E.colorful =  0;
 	else E.colorful = strstr(term, "256color") != NULL;

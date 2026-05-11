@@ -33,6 +33,20 @@ void addNode(char type, int startx, int starty, char c) {
 	E.tree.curr->type = type;
 	E.tree.curr->start[0] = startx;
 	E.tree.curr->start[1] = starty;
+	if (type == WRITE) {
+		E.tree.curr->end[0] = startx + 1;
+		E.tree.curr->end[1] = starty;
+	}
+	else {
+		if (startx > 0) {
+			E.tree.curr->end[0] = startx-1;
+			E.tree.curr->end[1] = starty;
+		}
+		else {
+			E.tree.curr->end[0] = E.row[starty-1].size;
+			E.tree.curr->end[1] = starty-1;
+		}
+	}
 	E.tree.curr->chars = malloc(sizeof(char));
 	E.tree.curr->chars[0] = c;
 	E.tree.curr->length = 1;
@@ -44,73 +58,44 @@ void addNode(char type, int startx, int starty, char c) {
 void appendUrChar(char c) {
 	E.tree.curr->chars = realloc(E.tree.curr->chars,sizeof(char)*(E.tree.curr->length+1));
 	E.tree.curr->chars[E.tree.curr->length++] = c;	
+	E.tree.curr->end[0] = E.cx;
+	E.tree.curr->end[1] = E.cy;
 	clock_gettime(CLOCK_MONOTONIC, &E.tree.curr->timestamp);
 }
 
 void undo() {
 	if (E.tree.curr == E.tree.root) return;
+	E.urMode = 0;
 	urBlock* curr = E.tree.curr;
 	if (curr->type == WRITE) {
-		int x = curr->start[0];
-		int y = curr->start[1];
-		int length = curr->length;
-		while ( length > 0) {
-			if (x+length > E.row[y].size) {
-				length -= E.row[y].size - x + 1;
-				y += 1;
-				x = 0;
-			}
-			else {
-				x += length;
-				length = 0;
-			}
-		}
-
-		E.cx = x;
-		E.cy = y;
-		for (int i = curr->length - 1; i >= 0; i--) {
-			editorDelCharUR();
+		E.cx = curr->end[0];
+		E.cy = curr->end[1];
+		for ( int i = 0; i < curr->length; i++ ) {
+			editorDelChar();
 		}
 	}
 	else {
-		int x = curr->start[0];
-		int y = curr->start[1];
-		int length = curr->length;
-		int tempLen = 0;
-		int size = 0;
-		while ( length > 0) {
-			if (x-length < 0) {
-				length -= x+1;
-				y -= 1;
-				tempLen = length+1;
-				while (tempLen < curr->length && curr->chars[tempLen] != '\r') {size++; tempLen++;}
-				x = size;
-				size = 0;
+		E.cx = curr->end[0];
+		E.cy = curr->end[1];
+		if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
+		for ( int i = curr->length-1; i >= 0; i-- ) {
+			if (curr->chars[i] != '\r') {
+				editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); 
+				E.cx++;
 			}
-			else {
-				x -= length;
-				length = 0;
-			}
-		}
-		char text[curr->length+1];
-		text[curr->length] = 0;
-		for (int i = 0; i < curr->length; i++) text[i] = (curr->chars[i] == '\r') ? '|' : curr->chars[i];
-		E.cx = x;
-		E.cy = y;
-		for (int i = curr->length - 1; i >= 0; i--) {
-			if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
-			if (curr->chars[i] != '\r') {editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); E.cx++;}
-			else editorInsertNewlineUR();
-		}
-		for (int i = (y-E.rowoff < 0) ? 0 : y-E.rowoff; i < E.cy+1; i++) {
-			redrawLine[i] |= REDRAW_DEF;
+			else editorInsertNewline();
 		}
 	}
+	for ( int i =  0; i < E.screenrows; i++ ) {
+		redrawLine[i] |= REDRAW_DEF;
+	}
 	E.tree.curr = E.tree.curr->parent;
+	E.urMode = 1;
 }
 
 void redo() {
 	if (E.tree.curr->childlen == 0) return;
+	E.urMode = 0;
 	int ind = 0;
 	for (int i = 1; i < E.tree.curr->childlen; i++) {
 		long sec = E.tree.curr->children[ind]->timestamp.tv_sec - E.tree.curr->children[i]->timestamp.tv_sec;
@@ -123,22 +108,26 @@ void redo() {
 	if (curr->type == DELETE) {
 		E.cx = curr->start[0];
 		E.cy = curr->start[1];
-		for (int i = 0; i < curr->length; i++) {
-			editorDelCharUR();
+		for ( int i = 0; i < curr->length; i++ ) {
+			editorDelChar();
 		}
 	}
 	else {
 		E.cx = curr->start[0];
 		E.cy = curr->start[1];
-		for (int i = 0; i < curr->length; i++) {
-			if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
-			if (curr->chars[i] != '\r') {editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); E.cx++;}
-			else editorInsertNewlineUR();
-		}
-		for (int i = (curr->start[1]-E.rowoff < 0) ? 0 : curr->start[1]-E.rowoff; i < E.cy+1; i++) {
-			redrawLine[i] |= REDRAW_DEF;
+		if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
+		for ( int i = 0; i < curr->length; i++ ) {
+			if (curr->chars[i] != '\r') {
+				editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); 
+				E.cx++;
+			}
+			else editorInsertNewline();
 		}
 	}
+	for (int i = 0; i < E.screenrows; i++) {
+		redrawLine[i] |= REDRAW_DEF;
+	}
+	E.urMode = 1;
 }
 
 void freeNode(urBlock* node) {

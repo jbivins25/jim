@@ -267,35 +267,49 @@ void editorInsertChar(int c) {
 	}
 	editorRowInsertChar(&E.row[E.cy], E.cx, c);
 	long sec, nsec;
-	if (E.tree.curr != NULL) {
-		struct timespec timestamp;
-		clock_gettime(CLOCK_MONOTONIC, &timestamp);
-		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
-		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
-		sec = sec * 1000 + nsec / 1000000;
+	if (E.urMode) {
+		if (E.tree.curr != NULL) {
+			struct timespec timestamp;
+			clock_gettime(CLOCK_MONOTONIC, &timestamp);
+			sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+			nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+			sec = sec * 1000 + nsec / 1000000;
+		}
+		else sec = 0;
+		if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, c);
+		else {
+			E.cx++;
+			appendUrChar(c);
+			E.cx--;
+		}
+		E.urType = WRITE;
 	}
-	else sec = 0;
-	if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, c);
-	else appendUrChar(c);
-	E.urType = WRITE;
 	E.cx++;
 	E.sticky = editorRowCxToRx(&E.row[E.cy],E.cx);
-	if (E.cy-E.rowoff < 0) return;
-	redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
+	if (E.cy-E.rowoff >= 0) redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
 }
 
 void editorInsertNewline() {
 	long sec, nsec;
-	if (E.tree.curr != NULL) {
-		struct timespec timestamp;
-		clock_gettime(CLOCK_MONOTONIC, &timestamp);
-		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
-		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
-		sec = sec * 1000 + nsec / 1000000;
+	if (E.urMode) {
+		if (E.tree.curr != NULL) {
+			struct timespec timestamp;
+			clock_gettime(CLOCK_MONOTONIC, &timestamp);
+			sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+			nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+			sec = sec * 1000 + nsec / 1000000;
+		}
+		else sec = 0;
+		if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, '\r');
+		else {
+			int tempx = E.cx;
+			E.cx = 0;
+			E.cy++;
+			appendUrChar('\r');
+			E.cx = tempx;
+			E.cy--;
+		}
 	}
-	else sec = 0;
-	if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, '\r');
-	else appendUrChar('\r');
 	if (E.cx == 0) {
 		editorInsertRow(E.cy, "", 0);
 	}
@@ -310,32 +324,11 @@ void editorInsertNewline() {
 	E.cy++;
 	E.cx = 0;
 	int line = E.cy-1-E.rowoff;
-	if (line < 0) return;
+	if (line < 0) line = 0;
 	for ( int i = line; i < E.screenrows; i++ ) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
 	E.urType = WRITE;
-}
-
-void editorInsertNewlineUR() {
-	if (E.cx == 0) {
-		editorInsertRow(E.cy, "", 0);
-	}
-	else {
-		erow* row = &E.row[E.cy];
-		editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
-		row = &E.row[E.cy];
-		row->size = E.cx;
-		row->chars[row->size] = '\0';
-		editorUpdateRow(row, &E.syn, NORMAL);
-	}
-	E.cy++;
-	E.cx = 0;
-	int line = E.cy-1-E.rowoff;
-	if (line < 0) return;
-	for ( int i = line; i < E.screenrows; i++ ) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
 }
 
 void editorDelChar() {
@@ -343,61 +336,52 @@ void editorDelChar() {
 	if (E.cx == 0 && E.cy == 0) return;
 	erow *row = &E.row[E.cy];
 	long sec, nsec;
-	if (E.tree.curr != NULL) {
-		struct timespec timestamp;
-		clock_gettime(CLOCK_MONOTONIC, &timestamp);
-		sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
-		nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
-		sec = sec * 1000 + nsec / 1000000;
+	if (E.urMode) {
+		if (E.tree.curr != NULL) {
+			struct timespec timestamp;
+			clock_gettime(CLOCK_MONOTONIC, &timestamp);
+			sec = timestamp.tv_sec - E.tree.curr->timestamp.tv_sec;
+			nsec = timestamp.tv_nsec - E.tree.curr->timestamp.tv_nsec;
+			sec = sec * 1000 + nsec / 1000000;
+		}
+		else sec = 0;
 	}
-	else sec = 0;
 	if (E.cx > 0) {
-		if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, row->chars[E.cx-1]);
-		else appendUrChar(row->chars[E.cx-1]);
+		if (E.urMode) {
+			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, row->chars[E.cx-1]);
+			else {
+				E.cx--;
+				appendUrChar(row->chars[E.cx]);
+				E.cx++;
+			}
+		}
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
-		if (E.cy-E.rowoff < 0) return;
-		redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
+		if (E.cy-E.rowoff >= 0) redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
 	}
 	else {
+		if (E.urMode) {
+			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
+			else {
+				E.cx = E.row[E.cy--].size;
+				appendUrChar('\r');
+				E.cx = 0;
+				E.cy++;
+			}
+		}
 		E.cx = E.row[E.cy-1].size;
 		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
 		editorDelRow(E.cy);
 		E.cy--;
 		int line = E.cy-E.rowoff;
-		if (line < 0) return;
+		if (line < 0) line = 0;
 		for ( int i = line; i < E.screenrows; i++ ) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
-		if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
-		else appendUrChar('\r');
 	}
+	row = &E.row[E.cy];
 	E.sticky = editorRowCxToRx(row, E.cx);
 	E.urType = DELETE;
-}
-
-void editorDelCharUR() {
-	if (E.cy == E.numrows) return;
-	if (E.cx == 0 && E.cy == 0) return;
-	erow *row = &E.row[E.cy];
-	if (E.cx > 0) {
-		editorRowDelChar(row, E.cx - 1);
-		E.cx--;
-		if (E.cy-E.rowoff < 0) return;
-		redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-	}
-	else {
-		E.cx = E.row[E.cy-1].size;
-		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
-		editorDelRow(E.cy);
-		E.cy--;
-		int line = E.cy-E.rowoff;
-		if (line < 0) return;
-		for ( int i = line; i < E.screenrows; i++ ) {
-			redrawLine[i] |= REDRAW_DEF;
-		}
-	}
-	E.sticky = editorRowCxToRx(row, E.cx);
 }
 
 int isSeparator(int c) {

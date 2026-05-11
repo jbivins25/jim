@@ -30,6 +30,7 @@ void shellProcessKey(int c) {
 			break;
 
 		case '\r':
+		case '!':
 			editorCommand();
 			break;
 
@@ -76,21 +77,19 @@ int jim_shell(const int argc, const char* args[]) {
 	char* line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
-	int prev_numrows = E.win.numrows;
 	while ((linelen = getline(&line, &linecap, fp)) != -1) {
 		while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
-		windowAddRow(line, E.win.numrows, linelen);
+		if(windowAddRow(line, E.win.numrows, linelen) < 0) clearWindow();
 	}
-	if (E.win.numrows-E.win.yOffset+1 >= E.win.screenrows) {
-		E.win.yOffset += E.win.numrows-E.win.yOffset+1;
-		for (int i = 0; i < E.win.screenrows; i++) {
-			redrawLine[i] |= REDRAW_WIN;
-		}
+	if (E.win.numrows > E.win.screenrows - 1) {
+		E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
 	}
 	else {
-		for (int i = prev_numrows-E.win.yOffset; i < E.win.screenrows; i++) {
-			redrawLine[i] |= REDRAW_WIN;
-		}
+		E.win.yOffset = 0;
+	}
+	E.win.xOffset = 0;
+	for (int i = 0; i < E.win.screenrows; i++) {
+		redrawLine[i] |= REDRAW_WIN;
 	}
 	free(line);
 	fclose(fp);

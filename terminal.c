@@ -144,7 +144,6 @@ void setupAsanLog() {
 void asanDeathCallback() {
 	disableRawMode();
 	write(STDOUT_FILENO, "\x1b[?1049l", 8);
-//	write(STDERR_FILENO, "\r\n", 2);
 
 	if (asan_log_fd != -1) {
 		close(asan_log_fd);

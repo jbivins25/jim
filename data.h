@@ -93,7 +93,7 @@ typedef struct {
 typedef struct {
 	char active, location;
 	int minCols, screencols, screenrows;
-	int cx, cy, xOffset, yOffset;
+	int xOffset, yOffset;
 	winHandler handler;
 	erow* row;
 	editorSyntax syn;
@@ -105,6 +105,7 @@ typedef struct {
 typedef struct urBlock {
 	char type;
 	int start[2];
+	int end[2];
 	int length;
 	int childlen;
 	char* chars;
@@ -138,9 +139,10 @@ struct editorConfig {
 	windowConfig win;
 	editorSyntax syn;
 	urTree tree;
-	char urType;
 	int colorful;
 	int sticky;
+	char urType;
+	char urMode;
 };
 
 extern struct editorConfig E;
