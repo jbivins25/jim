@@ -227,158 +227,69 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 	}
 }
 
-void editorMatchMark() {
-	char init = E.row[E.cy].chars[E.cx];
-	int initX = E.cx;
-	int initY = E.cy;
-	char* currchars = E.row[E.cy].chars;
-	int stack = 1;
-	char charStack = 0;
-	char prevChar = 0;
-	switch (init) {
+typedef struct enclosure {
+	char type;
+	int dir;
+} enclosure;
+
+enclosure enclosureLookup(char type) {
+	switch(type) {
 		case '(':
-			while (stack > 0) {
-				E.cx++;
-				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = 0;
-				}
-				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-				currchars = E.row[E.cy].chars;
-				if (currchars[E.cx] == ')' && !charStack) stack--;
-				else if (currchars[E.cx] == '(' && !charStack) stack++;
-				else if ((currchars[E.cx] == '\"' || currchars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = currchars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-					charStack = prevChar = 0;
-				}
-			}
-		break;
+			return (enclosure) {')', 1};
 
 		case ')':
-			while (stack != 0) {
-				E.cx--;
-				if (E.cx < 0 && E.cy > 0) {
-					while (--E.cy > 0 && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = E.row[E.cy].size-1;
-				}
-				else if (E.cy == 0 && E.cx == 0) {
-					E.cx = 0;
-					break;
-				}
-				currchars = E.row[E.cy].chars;
-				if (E.row[E.cy].chars[E.cx] == '(' && !charStack) stack--;
-				else if (E.row[E.cy].chars[E.cx] == ')' && !charStack) stack++;
-				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = E.row[E.cy].chars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-					charStack = prevChar = 0;
-				}
-			}
-			break;
-
-		case '[':
-			while (stack != 0) {
-				E.cx++;
-				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = 0;
-				}
-				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-				currchars = E.row[E.cy].chars;
-				if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack--;
-				else if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack++;
-				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = E.row[E.cy].chars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-					charStack = prevChar = 0;
-				}
-			}	
-			break;
-
-		case ']':
-			while (stack != 0) {
-				E.cx--;
-				if (E.cx < 0 && E.cy > 0) {
-					while (--E.cy > 0 && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = E.row[E.cy].size-1;
-				}
-				else if (E.cy == 0 && E.cx == 0) {
-					E.cx = 0;
-					break;
-				}
-				currchars = E.row[E.cy].chars;
-				if (E.row[E.cy].chars[E.cx] == '[' && !charStack) stack--;
-				else if (E.row[E.cy].chars[E.cx] == ']' && !charStack) stack++;
-				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = E.row[E.cy].chars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-					charStack = prevChar = 0;
-				}
-			}
-			break;
+			return (enclosure) {'(', 0};
 
 		case '{':
-			while (stack != 0) {
-				E.cx++;
-				if (E.cx == E.row[E.cy].size && E.cy < E.numrows-1) {
-					while(++E.cy < E.numrows && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = 0;
-				}
-				else if (E.cx == E.row[E.cy].size && E.cy == E.numrows-1) break;
-				currchars = E.row[E.cy].chars;
-				if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack--;
-				else if (E.row[E.cy].chars[E.cx] == '{' && !charStack) stack++;
-				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = E.row[E.cy].chars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-					charStack = prevChar = 0;
-				}
-			}
-			break;
-					
+			return (enclosure) {'}', 1};
+
 		case '}':
-			while (stack != 0) {
-				E.cx--;
-				if (E.cx < 0 && E.cy > 0) {
-					while (--E.cy > 0 && E.row[E.cy].size == 0);
-					if (E.row[E.cy].size == 0) {E.cx = 0; break;}
-					E.cx = E.row[E.cy].size-1;
-				}
-				else if (E.cy == 0 && E.cx == 0) {
-					E.cx = 0;
-					break;
-				}
-				currchars = E.row[E.cy].chars;
-				if (currchars[E.cx] == '{' && !charStack) stack--;
-				else if (E.row[E.cy].chars[E.cx] == '}' && !charStack) stack++;
-				else if ((E.row[E.cy].chars[E.cx] == '\"' || E.row[E.cy].chars[E.cx] == '\'') && !charStack) {
-					charStack = 1;
-					prevChar = E.row[E.cy].chars[E.cx];
-				}
-				else if (charStack && currchars[E.cx] == prevChar && ( E.cx == 0 ? 1 : E.cx == 1 ? currchars[E.cx-1] != '\\' : currchars[E.cx-1] != '\\' && currchars[E.cx-2] != '\\')) {
-						charStack = prevChar = 0;
-				}
-			}
-			break;
+			return (enclosure) {'{', 0};
+
+		case '[':
+			return (enclosure) {']', 1};
+
+		case ']':
+			return (enclosure) {'[', 0};
 
 		default:
-			break;
+			return (enclosure) {0,0};
+	}
+}
+
+void editorMatchMark() {
+	if (E.syn.filetype == NULL) return;
+	char init = E.row[E.cy].chars[E.cx];
+	enclosure match = enclosureLookup(init);
+	if (match.type == 0) return;
+	erow* row = &E.row[E.cy];
+	char* currchars = row->chars;
+	int stack = 1;
+	while (stack > 0) {
+		if (match.dir) E.cx++;
+		else E.cx--;
+		if (E.cx >= E.row[E.cy].size && E.cy < E.numrows-1) {
+			E.cx = 0;
+			while (++E.cy < E.numrows && E.row[E.cy].size == 0);
+			if (E.cy == E.numrows) return;
+			row = &E.row[E.cy];
+			currchars = row->chars;
+		}
+		else if (E.cx < 0 && E.cy > 0) {
+			while (--E.cy > 0 && E.row[E.cy].size == 0);
+			if (E.cy == 0 && E.row[E.cy].size == 0) { E.cx = 0; return;}
+			E.cx = E.row[E.cy].size - 1;
+			row = &E.row[E.cy];
+			currchars = row->chars;
+		} 
+		else if (E.cx < 0 || E.cx >= E.row[E.cy].size) {
+			if (E.cx < 0) E.cx = 0;
+			return;
+		}
+
+		int rx = editorRowCxToRx(row, E.cx);
+		if (currchars[E.cx] == match.type && (row->hl[rx] != STRING && row->hl[rx] != COMMENT)) stack--;
+		else if (currchars[E.cx] == init && (row->hl[rx] != STRING && row->hl[rx] != COMMENT)) stack++;
 	}
 }
 
@@ -393,7 +304,6 @@ void editorMoveCursor(int key) {
 				E.cy--;
 				E.cx = E.row[E.cy].size;
 			}
-			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_RIGHT:
 			if (row && E.cx < row->size) {
@@ -403,7 +313,6 @@ void editorMoveCursor(int key) {
 				E.cy++;
 				E.cx = 0;
 			}
-			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_UP:
 			if (E.cy != 0) {
@@ -421,6 +330,9 @@ void editorMoveCursor(int key) {
 	if (key == ARROW_UP || key == ARROW_DOWN) {
 		if (E.rx < E.sticky) E.rx = E.sticky;
 		E.cx = row ? editorRowRxToCx(row, E.rx) : 0;
+	}
+	else {
+		E.sticky = row ? editorRowCxToRx(row,E.cx) : 0;
 	}
 	if (E.cx > rowlen) { //Snap cursor back to end of line
 		E.cx = rowlen;

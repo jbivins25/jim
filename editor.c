@@ -14,7 +14,9 @@ enum {
 };
 
 void exitSelect() {
-	for (int i = (E.selected[0] - E.rowoff < 0) ? 0 : E.selected[0] - E.rowoff; i < E.selected[1]+1; i++) {
+	int start = (E.selected[0] - E.rowoff < 0) ? 0 : E.selected[0] - E.rowoff;
+	int end = (E.selected[1] - E.rowoff + 1 < E.screenrows) ? E.selected[1] - E.rowoff + 1 : E.screenrows;
+	for (int i = start; i < end; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
 	E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
@@ -363,14 +365,15 @@ void editorDelChar() {
 		if (E.urMode) {
 			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
 			else {
-				E.cx = E.row[E.cy--].size;
+				E.cx = E.row[E.cy-1].size;
+				E.cy--;
 				appendUrChar('\r');
 				E.cx = 0;
 				E.cy++;
 			}
 		}
 		E.cx = E.row[E.cy-1].size;
-		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
+		if (row->size > 0) editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
 		editorDelRow(E.cy);
 		E.cy--;
 		int line = E.cy-E.rowoff;
@@ -496,10 +499,13 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 	}
 	int changed = (row->hl_open_comment != in_comment);
 	row->hl_open_comment = in_comment;
-	if (changed && row->ind + 1 < (mode ? E.win.numrows : E.numrows)) {
-		redrawLine[row->ind - (mode ? E.win.yOffset : E.rowoff)] |= (mode ? REDRAW_WIN : REDRAW_DEF);
+	int numrows = (mode == WINDOW) ? E.win.numrows : E.numrows;
+	if (changed && (row->ind + 1 < numrows)) {
 		editorUpdateSyntax(row+1, syn, mode);
 	}
+	int offset = (mode == WINDOW) ? E.win.yOffset : E.rowoff;
+	int screenrows = (mode == WINDOW) ? E.win.screenrows : E.screenrows;
+	if (row->ind - offset < screenrows) redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF;
 }
 
 int editorSyntaxToColor(int hl) {

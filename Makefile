@@ -17,12 +17,12 @@ debug: $(DEBUG_DIR)/jim
 
 release: CFLAGS = -O2 -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic
 release: setup_env $(RELEASE_DIR)/jim
-	cp $(RELEASE_DIR)/jim ~/bin/.jim
+	cp $(RELEASE_DIR)/jim ~/bin/.
 	@echo Done!
 
 drelease: CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
 drelease: setup_env $(DEBUG_DIR)/jim
-	cp $(DEBUG_DIR)/jim ~/bin/.jim
+	cp $(DEBUG_DIR)/jim ~/bin/.
 	@echo Done!
 
 $(DEBUG_DIR)/jim: $(DEBUG_OBJS)
