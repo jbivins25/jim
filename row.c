@@ -49,10 +49,13 @@ void editorUpdateRow(erow *row, editorSyntax* syn, char mode) {
 
 void editorInsertRow(int at, char *s, size_t len) {
 	if (at < 0 || at > E.numrows) return;
-	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+	if (E.numrows >= E.capacity) {
+		E.capacity = E.capacity * 2;
+		E.row = realloc(E.row, sizeof(erow) * E.capacity);
+	}
 	memmove(&E.row[at+1], &E.row[at], sizeof(erow) * (E.numrows - at));
 	for (int j = at + 1; j <= E.numrows; j++) E.row[j].ind++;
-
+	
 	E.row[at].ind = at;
 	E.row[at].size = len;
 	E.row[at].chars = malloc(len + 1);

@@ -11,7 +11,7 @@ void editorCommandCallback(char* query, int key) {
 	char** args = malloc(sizeof(char*)*limit);
 	int ret_val;
 
-	if (key == '\x1b') {
+	if (key == '\x1b' || COM_TAB_SIZE == 0) {
 		free(args);
 		return;
 	}

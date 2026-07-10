@@ -21,8 +21,8 @@ release: setup_env $(RELEASE_DIR)/jim
 	@echo Done!
 
 drelease: CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
-drelease: setup_env $(DEBUG_DIR)/jim
-	cp $(DEBUG_DIR)/jim ~/bin/.
+drelease: setup_env $(DEBUG_OBJS)
+	gcc $(CFLAGS) -o ~/bin/jim $(DEBUG_OBJS)
 	@echo Done!
 
 $(DEBUG_DIR)/jim: $(DEBUG_OBJS)

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include "../compat.h"
 #include "../data.h"
 #include "../window.h"
 #include "../jimio.h"

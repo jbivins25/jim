@@ -5,11 +5,16 @@
 #include "fileio.h"
 #include "window.h"
 #include "ur.h"
-#include <unistd.h>
+#include "compat.h"
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define SYN_PATH "%s\\jim\\jim_%s.syn"
+#else
+#define SYN_PATH "%s/.jim/jim_%s.syn"
+#endif
 
 struct editorConfig E;
 char redrawLine[SCREEN_ROW_MAX] = {0};
@@ -20,10 +25,14 @@ void loadSyntax(char* filename) {
 	if (!ext) return;
 	size_t len = strlen(++ext);
 	if (len < 1) return;
+	#ifndef _WIN32
 	const char *home = getenv("HOME");
+	#else
+	const char *home = getenv("APPDATA");
+	#endif
 	if (!home) die("Couldn't find home");
 	char file[512];
-	snprintf(file, len+15+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
+	snprintf(file, len+16+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
 	FILE* f = fopen(file,"r");
 	if (f == NULL) return;
 	E.syn.filetype = malloc(len+1);
@@ -33,6 +42,7 @@ void loadSyntax(char* filename) {
 	getline(&line, &cap, f);
 	sscanf(line, "%d %d", &E.syn.keywordCount, &E.syn.typeCount);
 	E.syn.keywords = malloc(sizeof(char*)*E.syn.keywordCount);
+	E.syn.keywordLen = malloc(sizeof(char)*E.syn.keywordCount);
 	char* line_t;
 	for ( int i = 0; i < E.syn.keywordCount; i++ ) {
 		len = getline(&line, &cap, f);
@@ -41,6 +51,7 @@ void loadSyntax(char* filename) {
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';
 		E.syn.keywords[i] = line_t;
+		E.syn.keywordLen[i] = len;
 	}
 	E.syn.types = malloc(sizeof(char*)*E.syn.typeCount);
 	for ( int i = 0; i < E.syn.typeCount; i++ ) {
@@ -119,7 +130,6 @@ void initEditor() {
 	for (int i = 0; i < 4; i++) {
 		E.selected[i] = -1;
 	}
-	E.row = NULL;
 	E.dirty = 0;
 	E.mode = NORMAL;
 	E.cpbuffer = NULL;
@@ -135,10 +145,12 @@ void initEditor() {
 	E.win.handler = 0;
 	E.win.row = NULL;
 	E.win.numrows = 0;
-	E.syn = (editorSyntax){NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0};
+	E.syn = (editorSyntax){NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0};
 	initTree(&E.tree);
 	E.urType = NULL_UR;
 	E.urMode = 1;
+	E.capacity = STARTING_CAPACITY;
+	E.row = malloc(sizeof(erow)*E.capacity);
 	const char *term = getenv("TERM");
 	if (!term) E.colorful =  0;
 	else E.colorful = strstr(term, "256color") != NULL;

@@ -12,7 +12,9 @@ void enableRawMode();
 int editorReadKey();
 int getCursorPosition(int* rows, int* cols);
 int getWindowSize(int* rows, int* cols);
+#ifndef _WIN32
 void crashHandler(int sig, siginfo_t* info, void* ctx);
+#endif
 void setupCrashHandler();
 
 #endif

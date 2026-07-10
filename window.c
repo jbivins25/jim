@@ -8,6 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#define SYN_PATH "%s\\jim\\jim_%s.syn"
+#else
+#define SYN_PATH "%s/.jim/jim_%s.syn"
+#endif
 
 void windowSetup(char location, int minCols, int divider, void (*winHandler)(int c), char* header) {
 	if ((E.screencols+E.win.screencols)/divider < minCols) return;
@@ -201,10 +206,14 @@ void windowLoadSyntax(char* filename) {
 	if (!ext) return;
 	size_t len = strlen(++ext);
 	if (len < 1) return;
+	#ifndef _WIN32
 	const char* home = getenv("HOME");
-	if (!home) home = "./";
+	#else
+	const char* home = getenv("APPDATA");
+	#endif
+	if (!home) return;
 	char file[512];
-	snprintf(file, len+15+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
+	snprintf(file, len+16+strlen(home), SYN_PATH, home, ext);
 	FILE* f = fopen(file,"r");
 	if (f == NULL) return;
 	E.win.syn.filetype = malloc(len+1);

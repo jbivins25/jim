@@ -199,6 +199,7 @@ void editorHghlt(int c) {
 
 void editorMoveLine() {
 	char* query = editorPrompt("Line number: %s", NULL);
+	if (query == NULL) return;
 	int line = atoi(query);
 	if (line > 0 && line <= E.numrows) {
 		E.cx = 0;
@@ -392,120 +393,122 @@ int isSeparator(int c) {
 }
 
 void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
-	row->hl = realloc(row->hl, row->rsize);
-	memset(row->hl, NORM, row->rsize);
-	if (syn->filetype == NULL) return;
-
-	size_t slc_len = syn->slComment ? strlen(syn->slComment) : 0;
-	size_t mlcs_len = syn->mlCommentStart ? strlen(syn->mlCommentStart) : 0;
-	size_t mlce_len = syn->mlCommentEnd ? strlen(syn->mlCommentEnd) : 0;	
-
-	int in_comment = (row->ind > 0 && (row-1)->hl_open_comment);
-	int in_string = (row->ind > 0 && (row-1)->hl_open_string);
-	int prev_sep = 1;
-
-	for (int i = 0; i < row->rsize; i++) {
-		char c = row->render[i];
-		unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : NORMAL;
-
-		if (slc_len && !in_comment && !in_string) {
-			if (!strncmp(&row->render[i],syn->slComment,slc_len)) {
-				memset(&row->hl[i], COMMENT, row->rsize - i);
-				break;
-			}
-		}
-
-		if (mlcs_len && mlce_len && !in_string) {
-			if (in_comment) {
-				row->hl[i] = COMMENT;
-				if (!strncmp(&row->render[i], syn->mlCommentEnd, mlce_len)) {
-					memset(&row->hl[i], COMMENT, mlce_len);
-					i += mlce_len-1;
-					in_comment = 0;
-					prev_sep = 1;
-				}
-				continue;
-			}
-			else {
-				if (!strncmp(&row->render[i], syn->mlCommentStart, mlcs_len)) {
-					memset(&row->hl[i], COMMENT, mlcs_len);
-					i += mlcs_len-1;
-					in_comment = 1;
-					continue;
-				}
-			}
-		}
-
-		if (syn->flags & HGHLT_STRING) {
-			if (in_string) {
-				row->hl[i] = STRING;
-				if (c == '\\' && i + 1 < row->rsize) {
-					row->hl[i+1] = STRING;
-					i++;
-					continue;
-				}
-				if (i + 1 == row->rsize && (syn->flags & HGHLT_ML_STRINGS || c == '\\')) row->hl_open_string = 1;
-				if (c == in_string) {
-					in_string = 0;
-					row->hl_open_string = 0;
-				}
-				prev_sep = 1;
-				continue;
-			}
-			else {
-				if (c == '"' || c == '\'') {
-					in_string = c;
-					row->hl[i] = STRING;
-					continue;
-				}
-			}
-		}
-
-		if (syn->flags & HGHLT_NUM) {
-			if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || (c == 'f' && prev_hl == NUMBER)) {
-				row->hl[i] = NUMBER;
-				prev_sep = 0;
-				continue;
-			}
-		}
-		
-		if (prev_sep) {
-			int found = 0;
-			for (int j = 0; j < syn->keywordCount; j++) {
-				int klen = strlen(syn->keywords[j]);
-				if (!strncmp(&row->render[i],syn->keywords[j],klen) && (i+klen <= row->rsize && isSeparator(row->render[i+klen]))) {
-					memset(&row->hl[i], KEYWORD, klen);
-					found = 1;
-					i += klen-1;
-					prev_sep = 0;
-					break;
-				}
-			}
-			if (found) continue;
-			for (int j = 0; j < syn->typeCount; j++) {
-				int tlen = strlen(syn->types[j]);
-				if(!strncmp(&row->render[i],syn->types[j],tlen) && (i+tlen <= row->rsize && isSeparator(row->render[i+tlen]))) {
-					memset(&row->hl[i], TYPE, tlen);
-					found = 1;
-					i += tlen-1;
-					prev_sep = 0;
-					break;
-				}
-			}
-			if (found) continue;
-		}
-
-		prev_sep = isSeparator(c);		
-	}
-	int changed = (row->hl_open_comment != in_comment);
-	row->hl_open_comment = in_comment;
+	int changed = 0;
 	int numrows = (mode == WINDOW) ? E.win.numrows : E.numrows;
-	if (changed && (row->ind + 1 < numrows)) {
-		editorUpdateSyntax(row+1, syn, mode);
-	}
 	int offset = (mode == WINDOW) ? E.win.yOffset : E.rowoff;
 	int screenrows = (mode == WINDOW) ? E.win.screenrows : E.screenrows;
-	if (row->ind - offset < screenrows) redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF;
+	do {
+		if (changed) row++;
+		row->hl = realloc(row->hl, row->rsize);
+		memset(row->hl, NORM, row->rsize);
+		if (syn->filetype == NULL) return;
+
+		size_t slc_len = syn->slComment ? strlen(syn->slComment) : 0;
+		size_t mlcs_len = syn->mlCommentStart ? strlen(syn->mlCommentStart) : 0;
+		size_t mlce_len = syn->mlCommentEnd ? strlen(syn->mlCommentEnd) : 0;	
+	
+		int in_comment = (row->ind > 0 && (row-1)->hl_open_comment);
+		int in_string = (row->ind > 0 && (row-1)->hl_open_string);
+		int prev_sep = 1;
+	
+		for (int i = 0; i < row->rsize; i++) {
+			char c = row->render[i];
+			unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : NORM;
+	
+			if (slc_len && !in_comment && !in_string) {
+				if (!strncmp(&row->render[i],syn->slComment,slc_len)) {
+					memset(&row->hl[i], COMMENT, row->rsize - i);
+					break;
+				}
+			}
+	
+			if (mlcs_len && mlce_len && !in_string) {
+				if (in_comment) {
+					row->hl[i] = COMMENT;
+					if (!strncmp(&row->render[i], syn->mlCommentEnd, mlce_len)) {
+						memset(&row->hl[i], COMMENT, mlce_len);
+						i += mlce_len-1;
+						in_comment = 0;
+						prev_sep = 1;
+					}
+					continue;
+				}
+				else {
+					if (!strncmp(&row->render[i], syn->mlCommentStart, mlcs_len)) {
+						memset(&row->hl[i], COMMENT, mlcs_len);
+						i += mlcs_len-1;
+						in_comment = 1;
+						continue;
+					}
+				}
+			}	
+
+			if (syn->flags & HGHLT_STRING) {
+				if (in_string) {
+					row->hl[i] = STRING;
+					if (c == '\\' && i + 1 < row->rsize) {
+						row->hl[i+1] = STRING;
+						i++;
+						continue;
+					}
+					if (i + 1 == row->rsize && (syn->flags & HGHLT_ML_STRINGS || c == '\\')) row->hl_open_string = 1;
+					if (c == in_string) {
+						in_string = 0;
+						row->hl_open_string = 0;
+					}
+					prev_sep = 1;
+					continue;
+				}
+				else {
+					if (c == '"' || c == '\'') {
+						in_string = c;
+						row->hl[i] = STRING;
+						continue;
+					}
+				}
+			}
+	
+			if (syn->flags & HGHLT_NUM) {
+				if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || (c == 'f' && prev_hl == NUMBER)) {
+					row->hl[i] = NUMBER;
+					prev_sep = 0;
+					continue;
+				}
+			}
+			
+			if (prev_sep) {
+				int found = 0;
+				for (int j = 0; j < syn->keywordCount; j++) {
+					int klen = syn->keywordLen[j];
+					if (!strncmp(&row->render[i],syn->keywords[j],klen) && (i+klen <= row->rsize && isSeparator(row->render[i+klen]))) {
+						memset(&row->hl[i], KEYWORD, klen);
+						found = 1;
+						i += klen-1;
+						prev_sep = 0;
+						break;
+					}
+				}
+				if (found) continue;
+				for (int j = 0; j < syn->typeCount; j++) {
+					int tlen = strlen(syn->types[j]);
+					if(!strncmp(&row->render[i],syn->types[j],tlen) && (i+tlen <= row->rsize && isSeparator(row->render[i+tlen]))) {
+						memset(&row->hl[i], TYPE, tlen);
+						found = 1;
+						i += tlen-1;
+						prev_sep = 0;
+						break;
+					}
+				}
+				if (found) continue;
+			}
+	
+			prev_sep = isSeparator(c);		
+		}
+		changed = (row->hl_open_comment != in_comment) || (row->hl_open_string != in_string);
+		row->hl_open_comment = in_comment;
+		row->hl_open_string = in_string;
+		if (row->ind - offset < screenrows) redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF;
+	} while (changed && (row->ind + 1 < numrows));
 }
 
 int editorSyntaxToColor(int hl) {

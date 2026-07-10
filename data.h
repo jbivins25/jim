@@ -4,7 +4,12 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
+#ifndef _WIN32
 #include <termios.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -13,6 +18,7 @@
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
 #define UNDO_TIMEOUT 500
+#define STARTING_CAPACITY 16
 
 //====================================
 // Syntax Flags
@@ -81,6 +87,7 @@ typedef void (*winHandler) (int c);
 typedef struct {
 	char* filetype;
 	char** keywords;
+	char* keywordLen;
 	char** types;
 	char* slComment;
 	char* mlCommentStart;
@@ -129,18 +136,23 @@ struct editorConfig {
 	int numrows;
 	int selected[4];
 	char* cpbuffer;
-	erow *row;
+	erow* row;
 	int dirty;
 	int mode;
 	char *filename;
 	char statusmsg[80];
 	time_t statusmsg_time;
+	#ifndef _WIN32
 	struct termios orig_termios;
+	#else
+	DWORD orig_termios;
+	#endif
 	windowConfig win;
 	editorSyntax syn;
 	urTree tree;
 	int colorful;
 	int sticky;
+	int capacity;
 	char urType;
 	char urMode;
 };

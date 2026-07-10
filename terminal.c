@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include "compat.h"
+#ifndef _WIN32
 #include <sys/ioctl.h>
+#endif
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define ASAN_ENABLED
@@ -26,6 +28,24 @@ void die(const char *s) {
 	exit(1);
 }
 
+#ifdef _WIN32
+void disableRawMode() {
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), E.orig_termios);
+}
+
+void enableRawMode() {
+	HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
+	GetConsoleMode(hin, &E.orig_termios);
+	atexit(disableRawMode);
+	DWORD raw = E.orig_termios & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
+	SetConsoleMode(hin, raw);
+	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD outmode;
+	GetConsoleMode(hout, &outmode);
+	SetConsoleMode(hout, outmode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+}
+
+#else
 void disableRawMode() {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1) {
 		die("tcsetattr");
@@ -45,6 +65,7 @@ void enableRawMode() {
 	raw.c_cc[VTIME] = 1; //Sets timeout time for read (1/10 of a second)
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
+#endif
 
 int editorReadKey() {
 	int nread;
@@ -118,6 +139,16 @@ int getCursorPosition(int *rows, int* cols) {
 	return 0;
 }
 
+#ifdef _WIN32
+int getWindowSize(int* rows, int* cols) {
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (!GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) return -1;
+	*cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	*rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+	return 0;
+}
+
+#else
 int getWindowSize(int* rows, int* cols) {
 	struct winsize ws;
 
@@ -131,6 +162,7 @@ int getWindowSize(int* rows, int* cols) {
 		return 0;
 	}
 }
+#endif
 
 #ifdef ASAN_ENABLED
 
@@ -157,7 +189,7 @@ void asanDeathCallback() {
 	}
 }
 
-#else
+#elif !defined(_WIN32)
 
 void crashHandler(int sig, siginfo_t* info, void* ctx) {
 	(void)ctx;
@@ -176,7 +208,7 @@ void setupCrashHandler() {
 #ifdef ASAN_ENABLED
 	setupAsanLog();
 	__sanitizer_set_death_callback(asanDeathCallback);
-#else
+#elif !defined(_WIN32);
 	struct sigaction sa;
 	sa.sa_sigaction = crashHandler;
 	sa.sa_flags = SA_SIGINFO;
