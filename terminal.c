@@ -208,7 +208,7 @@ void setupCrashHandler() {
 #ifdef ASAN_ENABLED
 	setupAsanLog();
 	__sanitizer_set_death_callback(asanDeathCallback);
-#elif !defined(_WIN32);
+#elif !defined(_WIN32)
 	struct sigaction sa;
 	sa.sa_sigaction = crashHandler;
 	sa.sa_flags = SA_SIGINFO;
