@@ -13,7 +13,7 @@
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
-ssize_t getline(char **lineptr, size_t *n, FILE *stream) {
+static inline ssize_t getline(char **lineptr, size_t *n, FILE *stream) {
 	if (lineptr == NULL || n == NULL || stream == NULL) return -1;
 
 	if (*lineptr == NULL || *n == 0) {
