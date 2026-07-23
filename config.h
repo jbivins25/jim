@@ -27,11 +27,15 @@ typedef struct {
 #endif
 
 commandEntry command_table[] = {
+#ifndef _WIN32
 	{"term",jim_shell},
 	{"cat",jim_cat},
 	{"open",jim_open},
 	{"viewsyn",jim_viewsyn},
 	{"select",jim_select}
+#else
+	0
+#endif
 };
 
 // =================================
