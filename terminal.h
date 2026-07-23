@@ -2,9 +2,11 @@
 #define TERMINAL_H
 #include <signal.h>
 
+#ifndef _WIN32
 static struct sigaction old_sigbus;
 static struct sigaction old_sigsegv;
 static struct sigaction old_sigabrt;
+#endif
 
 void die(const char* s);
 void disableRawMode();

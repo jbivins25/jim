@@ -6,7 +6,6 @@
 #include "compat.h"
 #ifndef _WIN32
 #include <sys/ioctl.h>
-#endif
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define ASAN_ENABLED
@@ -17,6 +16,7 @@
 #ifdef ASAN_ENABLED
 #include <sanitizer/asan_interface.h>
 #include <fcntl.h>
+#endif
 #endif
 
 void die(const char *s) {

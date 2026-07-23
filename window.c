@@ -5,7 +5,7 @@
 #include "row.h"
 #include "palette.h"
 #include <string.h>
-#include <stdio.h>
+#include "compat.h"
 #include <stdlib.h>
 
 #ifdef _WIN32

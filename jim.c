@@ -158,6 +158,7 @@ void initEditor() {
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
+#ifndef _WIN32
 static void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {
 		//write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -177,13 +178,16 @@ static void win_sighandler(int sig) {
 		editorRefreshScreen();
 	}
 }
+#endif
 
 int main(int argc, char *argv[]) {
 	enableRawMode();
 	setupCrashHandler();
 	initEditor();
 	atexit(freeEditor);
+	#ifndef _WIN32
 	signal(SIGWINCH, win_sighandler);
+	#endif
 	write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on start
 	write(STDOUT_FILENO, "\x1b[H", 3);
 	if (argc >= 2) {
