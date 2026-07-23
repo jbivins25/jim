@@ -279,7 +279,7 @@ void editorInsertChar(int c) {
 			sec = sec * 1000 + nsec / 1000000;
 		}
 		else sec = 0;
-		if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, c);
+		if (E.urType == DELETE_UR || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, c);
 		else {
 			E.cx++;
 			appendUrChar(c);
@@ -303,7 +303,7 @@ void editorInsertNewline() {
 			sec = sec * 1000 + nsec / 1000000;
 		}
 		else sec = 0;
-		if (E.urType == DELETE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, '\r');
+		if (E.urType == DELETE_UR || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(WRITE, E.cx, E.cy, '\r');
 		else {
 			int tempx = E.cx;
 			E.cx = 0;
@@ -351,7 +351,7 @@ void editorDelChar() {
 	}
 	if (E.cx > 0) {
 		if (E.urMode) {
-			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, row->chars[E.cx-1]);
+			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE_UR, E.cx, E.cy, row->chars[E.cx-1]);
 			else {
 				E.cx--;
 				appendUrChar(row->chars[E.cx]);
@@ -364,7 +364,7 @@ void editorDelChar() {
 	}
 	else {
 		if (E.urMode) {
-			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE, E.cx, E.cy, '\r');
+			if (E.urType == WRITE || sec > UNDO_TIMEOUT || E.urType == NULL_UR) addNode(DELETE_UR, E.cx, E.cy, '\r');
 			else {
 				E.cx = E.row[E.cy-1].size;
 				E.cy--;
@@ -385,7 +385,7 @@ void editorDelChar() {
 	}
 	row = &E.row[E.cy];
 	E.sticky = editorRowCxToRx(row, E.cx);
-	E.urType = DELETE;
+	E.urType = DELETE_UR;
 }
 
 int isSeparator(int c) {

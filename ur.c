@@ -105,7 +105,7 @@ void redo() {
 	}
 	E.tree.curr = E.tree.curr->children[ind];	
 	urBlock* curr = E.tree.curr;
-	if (curr->type == DELETE) {
+	if (curr->type == DELETE_UR) {
 		E.cx = curr->start[0];
 		E.cy = curr->start[1];
 		for ( int i = 0; i < curr->length; i++ ) {

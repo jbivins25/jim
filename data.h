@@ -67,7 +67,7 @@ enum modeType {
 
 enum urType {
 	WRITE = 0,
-	DELETE,
+	DELETE_UR,
 	NULL_UR
 };
 
