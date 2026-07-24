@@ -1,60 +1,159 @@
-.DEFAULT_GOAL = debug
-CC = gcc
-CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
-ifeq ($(OS),Windows_NT)
-	TERM_SRC = terminal_windows.c
-else
-	TERM_SRC = terminal_unix.c
-endif
-SRCS=ab.c command.c editor.c fileio.c find.c jim.c jimio.c row.c $(TERM_SRC) ur.c window.c
-DEBUG_DIR = build/debug
-RELEASE_DIR = build/release
+.DEFAULT_GOAL := debug
 
-DEBUG_OBJS = $(patsubst %.c, $(DEBUG_DIR)/%.o, $(SRCS))
-RELEASE_OBJS = $(patsubst %.c, $(RELEASE_DIR)/%.o, $(SRCS))
+CC := gcc
+
+ifeq ($(OS),Windows_NT)
+TARGET := jim.exe
+TERM_SRC := terminal_windows.c
+
+DEBUG_DIR := build/debug
+RELEASE_DIR := build/release
+
+TARGET_DIR := $(USERPROFILE)\progs
+SETUP_DIR := $(APPDATA)\jim
+
+else
+TARGET := jim
+TERM_SRC := terminal_unix.c
+
+DEBUG_DIR := build/debug
+RELEASE_DIR := build/release
+
+TARGET_DIR := $(HOME)/bin
+SETUP_DIR := $(HOME)/.jim
+endif
+
+CFLAGS := -ggdb -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes
+
+SANITIZE :=
+ifneq ($(OS),Windows_NT)
+SANITIZE := -fsanitize=address
+endif
+
+SRCS := \
+	ab.c \
+	command.c \
+	editor.c \
+	fileio.c \
+	find.c \
+	jim.c \
+	jimio.c \
+	row.c \
+	$(TERM_SRC) \
+	ur.c \
+	window.c
+
+DEBUG_OBJS := $(SRCS:%.c=$(DEBUG_DIR)/%.o)
+RELEASE_OBJS := $(SRCS:%.c=$(RELEASE_DIR)/%.o)
 
 -include $(DEBUG_OBJS:.o=.d)
 -include $(RELEASE_OBJS:.o=.d)
 
-debug: CFLAGS = -ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
-debug: $(DEBUG_DIR)/jim
-	cp $^ jim
+###########################################################################
+# Debug
+###########################################################################
 
-release: CFLAGS = -O2 -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic
-release: setup_env $(RELEASE_DIR)/jim
-	cp $(RELEASE_DIR)/jim ~/bin/.
+debug: CFLAGS += $(SANITIZE)
+debug: $(TARGET)
+
+###########################################################################
+# Release
+###########################################################################
+
+release: CFLAGS := -O2 -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes
+release: setup_env $(RELEASE_DIR)/$(TARGET)
+
+ifeq ($(OS),Windows_NT)
+	copy /Y "$(subst /,\,$(RELEASE_DIR)/$(TARGET))" "$(TARGET_DIR)"
+else
+	cp -f $(RELEASE_DIR)/$(TARGET) "$(TARGET_DIR)"
+endif
+
 	@echo Done!
 
-drelease: CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
-drelease: setup_env $(DEBUG_OBJS)
-	gcc $(CFLAGS) -o ~/bin/jim $(DEBUG_OBJS)
+###########################################################################
+# Debug Release
+###########################################################################
+
+drelease: CFLAGS += $(SANITIZE)
+drelease: setup_env $(DEBUG_DIR)/$(TARGET)
+
+ifeq ($(OS),Windows_NT)
+	copy /Y "$(subst /,\,$(DEBUG_DIR)/$(TARGET))" "$(TARGET_DIR)"
+else
+	cp -f $(DEBUG_DIR)/$(TARGET) "$(TARGET_DIR)"
+endif
+
 	@echo Done!
 
-$(DEBUG_DIR)/jim: $(DEBUG_OBJS)
-	gcc $(CFLAGS) -o $@ $^
+###########################################################################
+# Linking
+###########################################################################
 
-$(RELEASE_DIR)/jim: $(RELEASE_OBJS)
-	gcc $(CFLAGS) -o $@ $^
+$(TARGET): $(DEBUG_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(DEBUG_DIR)/$(TARGET): $(DEBUG_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(RELEASE_DIR)/$(TARGET): $(RELEASE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+###########################################################################
+# Compilation
+###########################################################################
 
 $(DEBUG_DIR)/%.o: %.c | $(DEBUG_DIR)
-	gcc $(CFLAGS) -MMD -MP -c -o $@ $<
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 $(RELEASE_DIR)/%.o: %.c | $(RELEASE_DIR)
-	gcc $(CFLAGS) -MMD -MP -c -o $@ $<
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+###########################################################################
+# Directories
+###########################################################################
+
+$(DEBUG_DIR):
+ifeq ($(OS),Windows_NT)
+	if not exist "$(subst /,\,$@)" mkdir "$(subst /,\,$@)"
+else
+	mkdir -p "$@"
+endif
+
+$(RELEASE_DIR):
+ifeq ($(OS),Windows_NT)
+	if not exist "$(subst /,\,$@)" mkdir "$(subst /,\,$@)"
+else
+	mkdir -p "$@"
+endif
+
+###########################################################################
+# Install
+###########################################################################
 
 setup_env:
 	@echo Installing jim...
 	@echo Setting up environment...
-	mkdir -p ~/bin
-	mkdir -p ~/.jim
-	cp jim_syn/jim_*.syn ~/.jim/.
-	@echo Compiling...
 
-$(DEBUG_DIR):
-	mkdir -p $(DEBUG_DIR)
+ifeq ($(OS),Windows_NT)
+	if not exist "$(TARGET_DIR)" mkdir "$(TARGET_DIR)"
+	if not exist "$(SETUP_DIR)" mkdir "$(SETUP_DIR)"
+	copy /Y jim_syn\jim_*.syn "$(SETUP_DIR)"
+else
+	mkdir -p "$(TARGET_DIR)"
+	mkdir -p "$(SETUP_DIR)"
+	cp jim_syn/jim_*.syn "$(SETUP_DIR)"
+endif
 
-$(RELEASE_DIR):
-	mkdir -p $(RELEASE_DIR)
+###########################################################################
+# Clean
+###########################################################################
 
 clean:
-	rm -rf jim build
+ifeq ($(OS),Windows_NT)
+	-if exist build rmdir /s /q build
+	-if exist "$(TARGET)" del /q "$(TARGET)"
+else
+	rm -rf build
+	rm -f $(TARGET)
+endif
