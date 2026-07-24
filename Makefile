@@ -1,7 +1,12 @@
 .DEFAULT_GOAL = debug
 CC = gcc
 CFLAGS=-ggdb -std=c99 -Wall -Wno-strict-prototypes -Wextra -pedantic -fsanitize=address
-SRCS=ab.c command.c editor.c fileio.c find.c jim.c jimio.c row.c terminal.c ur.c window.c
+ifeq ($(OS),Windows_NT)
+	TERM_SRC = terminal_windows.c
+else
+	TERM_SRC = terminal_unix.c
+endif
+SRCS=ab.c command.c editor.c fileio.c find.c jim.c jimio.c row.c $(TERM_SRC) ur.c window.c
 DEBUG_DIR = build/debug
 RELEASE_DIR = build/release
 

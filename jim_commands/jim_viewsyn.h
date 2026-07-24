@@ -61,6 +61,18 @@ int jim_viewsyn(const int argc, const char* args[]) {
 		size_t linelen = strlen(E.syn.types[i]);
 		windowAddRow(E.syn.types[i], E.win.numrows, linelen);
 	}
+	char* temp3 = "Flags:";
+	windowAddRow(temp3, E.win.numrows, strlen(temp3));
+	char* temp4 = "Highlight Numbers";
+	if (E.syn.flags & HGHLT_NUM) windowAddRow(temp4, E.win.numrows, strlen(temp4));
+	temp4 = "Highlight Strings";
+	if (E.syn.flags & HGHLT_STRING) windowAddRow(temp4, E.win.numrows, strlen(temp4));
+	temp4 = "Highlight Single Line Comments";
+	if (E.syn.flags & HGHLT_SL_CM) windowAddRow(temp4, E.win.numrows, strlen(temp4));
+	temp4 = "Highlight Multiline Comments";
+	if (E.syn.flags & HGHLT_ML_CM) windowAddRow(temp4, E.win.numrows, strlen(temp4));
+	temp4 = "Highlight Multiline Strings";
+	if (E.syn.flags & HGHLT_ML_STRINGS) windowAddRow(temp4, E.win.numrows, strlen(temp4));
 	return 0;
 }
 
