@@ -59,9 +59,6 @@ int editorReadKey() {
 		}
 	}
 
-	if (c == '\r') {
-		return '\n';
-	}
 	return c;
 }
 
