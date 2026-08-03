@@ -52,18 +52,18 @@ void shellProcessKey(int c) {
 }
 
 int jim_shell(const int argc, const char* args[]) {
-	if ( argc < 1 ) return -1;
+	if ( argc < 1 ) return -101;
 	int pipefd[2];
-	if (pipe(pipefd) == -1) return -2;
+	if (pipe(pipefd) == -1) return -102;
 	pid_t pid = fork();
 	if (pid == 0) {
 		close(pipefd[0]);
 		dup2(pipefd[1], STDOUT_FILENO);
 		close(pipefd[1]);
 		execvp(args[0], (char* const*)args);
-		exit(-3);
+		exit(-103);
 	}
-	if (pid < 0) return -3;
+	if (pid < 0) return -104;
 	close(pipefd[1]);
 	int ret_val;
 	waitpid(pid, &ret_val, 0);

@@ -46,7 +46,7 @@ void viewsynProcessKey(int c) {
 int jim_viewsyn(const int argc, const char* args[]) {
 	(void)argc;
 	(void)args;
-	if (E.syn.filetype == NULL) return -1;
+	if (E.syn.filetype == NULL) return -101;
 	char* name = "Syntax Viewer";
 	windowSetup(1, 10, 2, viewsynProcessKey, strdup(name));
 	char* temp1 = "Keywords:";

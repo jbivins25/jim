@@ -32,7 +32,7 @@ void loadSyntax(char* filename) {
 	#endif
 	if (!home) die("Couldn't find home");
 	char file[512];
-	snprintf(file, len+16+strlen(home), "%s/.jim/jim_%s.syn", home, ext);
+	snprintf(file, len+16+strlen(home), SYN_PATH, home, ext);
 	FILE* f = fopen(file,"r");
 	if (f == NULL) return;
 	E.syn.filetype = malloc(len+1);
