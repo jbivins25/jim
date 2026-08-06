@@ -7,8 +7,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
-#include "compat.h"
 #include <stdio.h>
+#include "compat.h"
 
 void initTree(urTree* tree) {
 	tree->root = malloc(sizeof(urBlock));

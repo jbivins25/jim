@@ -3,7 +3,6 @@
 
 #ifdef _WIN32
 
-#include <stdio.h>
 #include <io.h>
 #include <windows.h>
 #define write _write

@@ -5,9 +5,9 @@
 #include "fileio.h"
 #include "window.h"
 #include "ur.h"
-#include "compat.h"
 #include <signal.h>
 #include <stdio.h>
+#include "compat.h"
 #include <string.h>
 
 #ifdef _WIN32

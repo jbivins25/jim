@@ -1,8 +1,6 @@
 // ============Commands=============
 // Define your command headers here
-#ifndef _WIN32
 #include "jim_commands/jim_shell.h"
-#endif
 #include "jim_commands/jim_cat.h"
 #include "jim_commands/jim_open.h"
 #include "jim_commands/jim_select.h"
@@ -20,25 +18,14 @@ typedef struct {
 // Add your command entry & update
 // the table size
 
-#ifndef _WIN32
 #define COM_TAB_SIZE 5
-#else
-#define COM_TAB_SIZE 4
-#endif
 
 commandEntry command_table[] = {
-#ifndef _WIN32
 	{"term",jim_shell},
 	{"cat",jim_cat},
 	{"open",jim_open},
 	{"viewsyn",jim_viewsyn},
 	{"select",jim_select}
-#else
-	{"cat",jim_cat},
-	{"open",jim_open},
-	{"viewsyn",jim_viewsyn},
-	{"select",jim_select}
-#endif
 };
 
 // =================================
