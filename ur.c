@@ -181,6 +181,7 @@ void fillCanvas(int rows, int cols, char canvas[rows][cols], urBlock* node, int 
 
 void drawTree() {
 	if (E.tree.root == NULL) return;
+	windowClearRows();
 	int depth = findDepth(E.tree.root);
 	int nodesInRow[depth];
 	memset(nodesInRow, 0, depth*sizeof(int));
@@ -202,8 +203,14 @@ void drawTree() {
 			while ( ind < max_len+1 && canvas[i][ind] == 0 ) canvas[i][ind++] = ' ';
 		}
 	}
-	for ( int i = 0; i < depth; i++ ) {
+	for ( int i = 0; i < 2*depth-1; i++ ) {
 		windowAddRow(canvas[i], E.win.numrows, strlen(canvas[i]));
+	}
+	int redraw;
+	if (2*depth > E.win.screenrows) redraw = E.win.screenrows;
+	else redraw = 2*depth;
+	for ( int i = 0; i < redraw; i++ ) {
+		redrawLine[i] |= REDRAW_WIN;
 	}
 	E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
 }
@@ -212,7 +219,6 @@ void treeProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
 	switch(c) {
 		case CTRL_KEY('w'):
-			clearWindow();
 			E.mode = NORMAL;
 			break;
 

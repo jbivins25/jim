@@ -420,9 +420,13 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('t'):
 			//break;
-			if ( E.win.active && !strcmp(E.win.header, "Tree")) clearWindow();
+			if ( E.win.active && !strcmp(E.win.header, "Tree")) {
+				clearWindow();
+				E.keypressCallback = NULL;
+			}
 			else {
 				windowSetup(0, 20, 5, treeProcessKey, strdup("Tree"));
+				E.keypressCallback = drawTree;
 				drawTree();
 				if (E.win.screencols < E.win.minCols) clearWindow();
 			}
@@ -488,5 +492,6 @@ void editorProcessKeypress() {
 			editorInsertChar(c);
 			break;
 	}
+	if (E.keypressCallback) E.keypressCallback();
 	quit_times = JIM_QUIT_TIMES;
 }

@@ -202,7 +202,7 @@ void windowPageScroll(int c) {
 	}
 }
 
-void windowLoadSyntax(char* filename) {
+void windowLoadSyntax(const char* filename) {
 	char* ext = strrchr(filename, '.');
 	if (!ext) return;
 	size_t len = strlen(++ext);
@@ -268,4 +268,11 @@ void windowLoadSyntax(char* filename) {
 	}
 	free(line);
 	fclose(f);
+}
+
+void windowClearRows() {
+	for ( int i = 0; i < E.win.numrows; i++ ) editorFreeRow(&E.win.row[i]);
+	free(E.win.row);
+	E.win.row = NULL;
+	E.win.numrows = 0;
 }
