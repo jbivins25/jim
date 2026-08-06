@@ -7,6 +7,7 @@
 #include "../data.h"
 #include "../window.h"
 #include "../jimio.h"
+#include "../syntax.h"
 
 void catProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
@@ -48,7 +49,7 @@ int jim_cat(const int argc, const char* args[]) {
 	FILE* fp = fopen(args[0], "r");
 	if (!fp) return -1;
 	windowSetup(1, 10, 2, catProcessKey, strdup(args[0]));
-	//windowLoadSyntax(args[0]);
+	loadSyntax(args[0], &E.win.syn);
 	char* line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;	

@@ -510,7 +510,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			if ((row->hl_open_comment != in_comment && E.syn.flags & HGHLT_ML_CM)) row->hl_open_comment = in_comment;
 			if ((row->hl_open_string != in_string && E.syn.flags & HGHLT_ML_STRINGS)) row->hl_open_string = in_string;
 		}
-		if (row->ind - offset < screenrows) redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF;
+		if (row->ind - offset < screenrows && row->ind - offset >= 0) redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF;
 	} while (changed && (row->ind + 1 < numrows));
 }
 

@@ -4,6 +4,7 @@
 #include "editor.h"
 #include "row.h"
 #include "palette.h"
+#include "syntax.h"
 #include <string.h>
 #include <stdio.h>
 #include "compat.h"
@@ -40,6 +41,7 @@ void clearWindow() {
 	for ( int i = 0; i < E.win.numrows; i++ ) editorFreeRow(&E.win.row[i]);
 	free(E.win.row);
 	free(E.win.header);
+	freeSyntax(&E.win.syn);
 	memset(&E.win, 0, sizeof(windowConfig));
 	redrawWholeScreen = 1;
 }
@@ -200,74 +202,6 @@ void windowPageScroll(int c) {
 			redrawLine[i] |= REDRAW_WIN;
 		}
 	}
-}
-
-void windowLoadSyntax(const char* filename) {
-	char* ext = strrchr(filename, '.');
-	if (!ext) return;
-	size_t len = strlen(++ext);
-	if (len < 1) return;
-	#ifndef _WIN32
-	const char* home = getenv("HOME");
-	#else
-	const char* home = getenv("APPDATA");
-	#endif
-	if (!home) return;
-	char file[512];
-	snprintf(file, len+16+strlen(home), SYN_PATH, home, ext);
-	FILE* f = fopen(file,"r");
-	if (f == NULL) return;
-	E.win.syn.filetype = malloc(len+1);
-	strcpy(E.win.syn.filetype,ext);
-	char* line = NULL;
-	size_t cap = 0;
-	getline(&line, &cap, f);
-	sscanf(line, "%d %d", &E.win.syn.keywordCount, &E.win.syn.typeCount);
-	E.win.syn.keywords = malloc(sizeof(char*)*E.win.syn.keywordCount);
-	char* line_t;
-	for (int i = 0; i < E.win.syn.keywordCount; i++) {
-		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
-		line_t = malloc(len+1);
-		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
-		line_t[len] = '\0';
-		E.win.syn.keywords[i] = line_t;
-	}
-	E.win.syn.types = malloc(sizeof(char*)*E.win.syn.typeCount);
-	for (int i = 0; i < E.win.syn.typeCount; i++) {
-		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
-		line_t = malloc(len+1);
-		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
-		line_t[len] = '\0';
-		E.win.syn.types[i] = line_t;
-	}
-	getline(&line, &cap, f);
-	sscanf(line, "%d", &E.win.syn.flags);
-	if (E.win.syn.flags & HGHLT_SL_CM) {
-		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
-		line_t = malloc(len+1);
-		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
-		line_t[len] = '\0';
-		E.win.syn.slComment = line_t;
-	}
-	if (E.win.syn.flags & HGHLT_ML_CM) {
-		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
-		line_t = malloc(len+1);
-		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
-		line_t[len] = '\0';
-		E.win.syn.mlCommentStart = line_t;
-		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
-		line_t = malloc(len+1);
-		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
-		line_t[len] = '\0';
-		E.win.syn.mlCommentEnd = line_t;
-	}
-	free(line);
-	fclose(f);
 }
 
 void windowClearRows() {
