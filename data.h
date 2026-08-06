@@ -159,6 +159,7 @@ struct editorConfig {
 };
 
 extern struct editorConfig E;
+extern int CLEAN_WIN;
 extern char redrawLine[SCREEN_ROW_MAX];
 extern int redrawWholeScreen;
 

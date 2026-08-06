@@ -42,10 +42,12 @@ void editorScroll() {
 		for (int i = 0; i < E.screenrows; i++) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
+		CLEAN_WIN = 0;
 	}
 }
 
 void editorDrawRows(struct abuf* ab) {
+	if (CLEAN_WIN) return;
 	char buf[32];
 	static int set = 1;
 	static char def_fg[8];
@@ -117,6 +119,7 @@ void editorDrawRows(struct abuf* ab) {
 		}
 	}
 	redrawWholeScreen = 0;
+	CLEAN_WIN = 1;
 }
 
 void editorDrawStatusBar(struct abuf *ab) {
@@ -196,9 +199,10 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 	while(1) {
 		editorSetStatusMessage(prompt, buf);
 		editorRefreshScreen();
-		
+
 		int c = editorReadKey();
-		
+		if (c == -1) continue;
+
 		if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
 			if (buflen != 0) buf[--buflen] = '\0';
 		}
@@ -343,6 +347,7 @@ void editorMoveCursor(int key) {
 void editorProcessKeypress() {
 	static int quit_times = JIM_QUIT_TIMES;
 	int c = editorReadKey();
+	if (c == -1) return;
 
 	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
 	if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}

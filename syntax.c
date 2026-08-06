@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "terminal.h"
+#include "compat.h"
 
 #ifdef _WIN32
 #define SYN_PATH "%s\\jim\\jim_%s.syn"

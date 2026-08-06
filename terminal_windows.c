@@ -3,16 +3,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <io.h>
-#include <windows.h>
+#include "compat.h"
 #include <conio.h>
-#define write _write
-#define open _open
-#define close _close
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-#define STDERR_FILENO 2
-
 
 void die(const char *s) {
 	disableRawMode();
@@ -40,6 +32,7 @@ void enableRawMode() {
 }
 
 int editorReadKey() {
+	if (!_kbhit()) return KEY_NONE;
 	int c = _getch();
 
 	if (c == 0 || c == 224) {

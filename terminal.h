@@ -2,6 +2,8 @@
 #define TERMINAL_H
 #include <signal.h>
 
+#define KEY_NONE -1
+
 void die(const char* s);
 void disableRawMode();
 void enableRawMode();

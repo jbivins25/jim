@@ -201,6 +201,7 @@ void windowPageScroll(int c) {
 		for (int i = 0; i < E.win.screenrows; i++) {
 			redrawLine[i] |= REDRAW_WIN;
 		}
+		CLEAN_WIN = 0;
 	}
 }
 

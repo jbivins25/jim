@@ -12,6 +12,7 @@
 #include <string.h>
 
 struct editorConfig E;
+int CLEAN_WIN = 1;
 char redrawLine[SCREEN_ROW_MAX] = {0};
 int redrawWholeScreen = 1;
 
