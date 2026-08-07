@@ -198,9 +198,11 @@ void windowPageScroll(int c) {
 			break;
 	}
 	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) {
+		THREAD_LOCK(T.redrawLock);
 		for (int i = 0; i < E.win.screenrows; i++) {
 			redrawLine[i] |= REDRAW_WIN;
 		}
+		THREAD_UNLOCK(T.redrawLock);
 		CLEAN_WIN = 0;
 	}
 }

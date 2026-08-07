@@ -97,7 +97,9 @@ void editorHghlt(int c) {
 	    }
 	    E.cpbuffer[ind] = '\0';
 	    }
+	    THREAD_LOCK(T.setMessageLock);
 	    editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
+	    THREAD_UNLOCK(T.setMessageLock);
             break;
 
 	case CTRL_KEY('v'):

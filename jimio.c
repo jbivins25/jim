@@ -39,9 +39,11 @@ void editorScroll() {
 		E.coloff = E.rx - E.screencols + 1;
 	}
 	if (E.rowoff != init_rowoff || E.coloff != init_coloff) {
+		THREAD_LOCK(T.redrawLock);
 		for (int i = 0; i < E.screenrows; i++) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
+		THREAD_UNLOCK(T.redrawLock);
 		CLEAN_WIN = 0;
 	}
 }
@@ -159,9 +161,11 @@ void editorDrawMessageBar(struct abuf *ab) {
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.screenrows+2, 0);
 	abAppend(ab, buf, strlen(buf));
 	abAppend(ab, "\x1b[K", 3);
+	THREAD_LOCK(T.setMessageLock);
 	int msglen = strlen(E.statusmsg);
 	if (msglen > E.screencols + E.win.screencols) msglen = E.screencols + E.win.screencols;
 	if (msglen && time(NULL) - E.statusmsg_time < 5) abAppend(ab, E.statusmsg, msglen);
+	THREAD_UNLOCK(T.setMessageLock);
 }
 
 void editorRefreshScreen() {
@@ -170,9 +174,11 @@ void editorRefreshScreen() {
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); //Hide cursor
 	abAppend(&ab, "\x1b[H", 3); //Positions cursor at top left
+	THREAD_LOCK(T.redrawLock);
 	editorDrawRows(&ab);
 	editorDrawStatusBar(&ab);
 	editorDrawMessageBar(&ab);
+	THREAD_UNLOCK(T.redrawLock);
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1 + (E.win.active && E.win.location == 0 ? E.win.screencols : 0) ); //Add one to deal with terminal cursor indexing
 	abAppend(&ab, buf, strlen(buf));
@@ -197,7 +203,9 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 	size_t buflen = 0;
 	buf[0] = '\0';
 	while(1) {
+		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage(prompt, buf);
+		THREAD_UNLOCK(T.setMessageLock);
 		editorRefreshScreen();
 
 		int c = editorReadKey();
@@ -207,14 +215,18 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 			if (buflen != 0) buf[--buflen] = '\0';
 		}
 		else if (c == '\x1b') {
+			THREAD_LOCK(T.setMessageLock);
 			editorSetStatusMessage("");
+			THREAD_UNLOCK(T.setMessageLock);
 			if (callback) callback(buf, c);
 			free(buf);
 			return NULL;
 		}
 		else if (c == '\r') {
 			if (buflen != 0) {
+				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("");
+				THREAD_UNLOCK(T.setMessageLock);
 				if (callback) callback(buf, c);
 				return buf;
 			}
@@ -359,7 +371,9 @@ void editorProcessKeypress() {
 
 		case CTRL_KEY('q'):
 			if (E.dirty && quit_times > 0) {
+				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+				THREAD_UNLOCK(T.setMessageLock);
 				quit_times--;
 				return;
 			}

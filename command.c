@@ -26,7 +26,7 @@ void editorCommandCallback(char* query, int key) {
 		int argc = 0;
 		while (args[argc] != NULL) argc++;
 		ret_val = command_table[com_ind].handler(argc, (const char**) args);
-		if (ret_val < 0) editorSetStatusMessage("Error: %d",ret_val);
+		if (ret_val < 0) { THREAD_LOCK(T.setMessageLock); editorSetStatusMessage("Error: %d",ret_val); THREAD_UNLOCK(T.setMessageLock); }
 	}
 	free(args);
 }

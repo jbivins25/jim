@@ -12,6 +12,7 @@
 #include <string.h>
 
 struct editorConfig E;
+editorThreads T = {0};
 int CLEAN_WIN = 1;
 char redrawLine[SCREEN_ROW_MAX] = {0};
 int redrawWholeScreen = 1;
@@ -29,6 +30,13 @@ void freeEditor() {
 	freeTree(&E.tree);
 	freeSyntax(&E.syn);
 	write(STDOUT_FILENO, "\x1b[?1049l", 8);
+}
+
+void freeLocks() {
+	DELETE_LOCK(T.threadLock);
+	DELETE_LOCK(T.redrawLock);
+	DELETE_LOCK(T.windowThreadLock);
+	DELETE_LOCK(T.setMessageLock);
 }
 
 void initEditor() {
@@ -64,6 +72,13 @@ void initEditor() {
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
+void initLocks() {
+	CREATE_LOCK(T.threadLock);
+	CREATE_LOCK(T.redrawLock);
+	CREATE_LOCK(T.windowThreadLock);
+	CREATE_LOCK(T.setMessageLock);
+}
+
 #ifndef _WIN32
 static void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {
@@ -91,6 +106,8 @@ int main(int argc, char *argv[]) {
 	setupCrashHandler();
 	initEditor();
 	atexit(freeEditor);
+	initLocks();
+	atexit(freeLocks);
 	#ifndef _WIN32
 	signal(SIGWINCH, win_sighandler);
 	#endif
@@ -101,11 +118,14 @@ int main(int argc, char *argv[]) {
 		editorOpen(argv[1]);
 	}
 
+	THREAD_LOCK(T.setMessageLock);
 	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
+	THREAD_UNLOCK(T.setMessageLock);
 
 	while (1) {
 		editorRefreshScreen();
 		editorProcessKeypress();
+		editorJoinThread();
 	}
 	return 0;
 }

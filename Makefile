@@ -42,7 +42,8 @@ SRCS := \
 	$(TERM_SRC) \
 	ur.c \
 	window.c \
-	syntax.c
+	syntax.c \
+	thread.c
 
 DEBUG_OBJS := $(SRCS:%.c=$(DEBUG_DIR)/%.o)
 RELEASE_OBJS := $(SRCS:%.c=$(RELEASE_DIR)/%.o)

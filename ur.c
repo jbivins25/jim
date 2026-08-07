@@ -227,7 +227,9 @@ void treeProcessKey(int c) {
 
 		case CTRL_KEY('q'):
 			if (E.dirty && quit_times > 0) {
+				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+				THREAD_UNLOCK(T.setMessageLock);
 				quit_times--;
 				return;
 			}

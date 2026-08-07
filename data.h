@@ -19,6 +19,7 @@
 #define SCREEN_ROW_MAX 256
 #define UNDO_TIMEOUT 500
 #define STARTING_CAPACITY 16
+#define MAX_THREADS 4
 
 //====================================
 // Syntax Flags
@@ -158,7 +159,56 @@ struct editorConfig {
 	char urMode;
 };
 
+//Editor Thread Definitions
+#ifndef _WIN32
+typedef pthread_t editor_thread_t;
+typedef pthread_mutex_t editor_mutex_t;
+#define CREATE_LOCK(m) pthread_mutex_init(&(m), NULL) //Abstraction has default attributes
+#define DELETE_LOCK(m) pthread_mutex_destroy(&(m))
+#define THREAD_LOCK(m) pthread_mutex_lock(&(m))
+#define THREAD_UNLOCK(m) pthread_mutex_unlock(&(m))
+#define THREAD_TRY_UNLOCK(m) pthread_mutex_trylock(&(m))
+#else
+typedef HANDLE editor_thread_t;
+typedef CRITICAL_SECTION editor_mutex_t;
+#define CREATE_LOCK(m) InitializeCriticalSection(&(m))
+#define DELETE_LOCK(m) DeleteCriticalSection(&(m))
+#define THREAD_LOCK(m) EnterCriticalSection(&(m))
+#define THREAD_UNLOCK(m) LeaveCriticalSection(&(m))
+#define THREAD_TRY_UNLOCK(m) !TryEnterCriticalSection(&(m)) //Returns 1 if it fails
+#endif
+typedef void (*editorThreadFunc)(void *);
+
+enum threadState {
+	THREAD_UNUSED,
+	THREAD_ACTIVE,
+	THREAD_FINISHED
+};
+
+typedef struct {
+	editor_thread_t handle;
+	int state;
+
+	editorThreadFunc func;
+	void* arg;
+} editorThread;
+
+typedef struct {
+	editorThread slot[MAX_THREADS];
+	int count;
+
+	editor_mutex_t threadLock;
+	editor_mutex_t redrawLock;
+	editor_mutex_t windowThreadLock;
+	editor_mutex_t setMessageLock;
+} editorThreads;
+
+int editorThreadCreate(editorThreadFunc func, void* arg);
+int editorDetachThread(editorThread* t);
+int editorJoinThread();
+
 extern struct editorConfig E;
+extern editorThreads T;
 extern int CLEAN_WIN;
 extern char redrawLine[SCREEN_ROW_MAX];
 extern int redrawWholeScreen;

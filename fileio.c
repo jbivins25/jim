@@ -49,7 +49,9 @@ void editorSave() {
 	if (E.filename == NULL) {
 		E.filename = editorPrompt("Save as: %s", NULL);
 		if (E.filename == NULL) {
+			THREAD_LOCK(T.setMessageLock);
 			editorSetStatusMessage("Save aborted");
+			THREAD_UNLOCK(T.setMessageLock);
 			return;
 		}
 	}
@@ -64,12 +66,16 @@ void editorSave() {
 				close(fd);
 				free(buf);
 				E.dirty = 0;
+				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Saved! Wrote %d bytes to disk", len);
+				THREAD_UNLOCK(T.setMessageLock);
 				return;
 			}
 		}
 		close(fd);
 	}
 	free(buf);
+	THREAD_LOCK(T.setMessageLock);
 	editorSetStatusMessage("Can't save! Error: %s", strerror(errno));
+	THREAD_UNLOCK(T.setMessageLock);
 }
