@@ -69,6 +69,7 @@ void initEditor() {
 	else E.colorful = strstr(term, "256color") != NULL;
 	E.sticky = 0;
 	E.keypressCallback = NULL;
+	E.showFPS = 0;
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 

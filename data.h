@@ -158,6 +158,7 @@ struct editorConfig {
 	int capacity;
 	char urType;
 	char urMode;
+	char showFPS;
 };
 
 //Editor Thread Definitions

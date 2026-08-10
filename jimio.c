@@ -125,6 +125,16 @@ void editorDrawRows(struct abuf* ab) {
 }
 
 void editorDrawStatusBar(struct abuf *ab) {
+	static int FPS = 0;
+	static int frameCount = 0;
+	static time_t orig_time = 0;
+	if (!orig_time) orig_time = time(NULL);
+	time_t new_time = time(NULL);
+	if (new_time - orig_time >= 1) {
+		orig_time = new_time;
+		FPS  = frameCount;
+		frameCount = 0;
+	}
 	char buf[32];
 	int len;
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.screenrows+1, 0);
@@ -136,7 +146,9 @@ void editorDrawStatusBar(struct abuf *ab) {
 	abAppend(ab, buf, len);
 	char status[80], rstatus[80];
 	len = snprintf(status, sizeof(status), "%.20s - %d lines %s", E.filename ? E.filename : "[No name]", E.numrows, E.dirty ? "(modified)" : "");
-	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", statusMode[E.mode], E.cy + 1, E.numrows);
+	int rlen;
+	if (E.showFPS) rlen = snprintf(rstatus, sizeof(rstatus), "FPS: %d  Mode: %s  %d/%d", FPS, statusMode[E.mode], E.cy + 1, E.numrows);
+	else rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", statusMode[E.mode], E.cy + 1, E.numrows);
 	if (len > E.screencols + E.win.screencols) len = E.screencols + E.win.screencols;
 	abAppend(ab, status, len);
 	while (len < E.screencols + E.win.screencols) {
@@ -154,6 +166,7 @@ void editorDrawStatusBar(struct abuf *ab) {
 	len = snprintf(buf, sizeof(buf), "\x1b[%dm", DEF_BG);
 	abAppend(ab, buf, len);
 	abAppend(ab, "\r\n", 2);
+	frameCount++;
 }
 
 void editorDrawMessageBar(struct abuf *ab) {

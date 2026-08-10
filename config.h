@@ -5,6 +5,7 @@
 #include "jim_commands/jim_open.h"
 #include "jim_commands/jim_select.h"
 #include "jim_commands/jim_viewsyn.h"
+#include "jim_commands/jim_showfps.h"
 // =================================
 
 typedef int (*CommandFunc)(const int argc, const char* args[]); //By default, 0 will be interpretted as success and any negative values are errors which will be printed
@@ -18,14 +19,15 @@ typedef struct {
 // Add your command entry & update
 // the table size
 
-#define COM_TAB_SIZE 5
+#define COM_TAB_SIZE 6
 
 commandEntry command_table[] = {
 	{"term",jim_shell},
 	{"cat",jim_cat},
 	{"open",jim_open},
 	{"viewsyn",jim_viewsyn},
-	{"select",jim_select}
+	{"select",jim_select},
+	{"showfps",jim_showfps}
 };
 
 // =================================
