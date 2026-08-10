@@ -199,6 +199,11 @@ void editorRefreshScreen() {
 
 	write(STDOUT_FILENO, ab.b, ab.len);
 	abFree(&ab);
+	struct timespec ts;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 10 * 1000 * 1000; //10 ms, ~100 fps
+
+	nanosleep(&ts, NULL);
 }
 
 void editorSetStatusMessage(const char *fmt, ...) {

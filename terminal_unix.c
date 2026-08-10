@@ -42,7 +42,7 @@ void enableRawMode() {
 	raw.c_oflag &= ~(OPOST); //Removes implicit '\r' from '\n' 
 	raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN); //Turns off echo and some controls
 	raw.c_cc[VMIN] = 0; //Sets min number of bytes before read can return
-	raw.c_cc[VTIME] = 1; //Sets timeout time for read (1/10 of a second)
+	raw.c_cc[VTIME] = 0; //Sets timeout time for read (1/10 of a second)
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
