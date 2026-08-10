@@ -43,8 +43,8 @@ void editorScroll() {
 		for (int i = 0; i < E.screenrows; i++) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
-		THREAD_UNLOCK(T.redrawLock);
 		CLEAN_WIN = 0;
+		THREAD_UNLOCK(T.redrawLock);
 	}
 }
 

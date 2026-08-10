@@ -222,9 +222,11 @@ int jim_shell(const int argc, const char* args[]) {
 		E.win.yOffset = 0;
 	}
 	E.win.xOffset = 0;
+	THREAD_LOCK(T.redrawLock);
 	for (int i = 0; i < E.win.screenrows; i++) {
 		redrawLine[i] |= REDRAW_WIN;
 	}
+	THREAD_UNLOCK(T.redrawLock);
 	return 0;
 }
 

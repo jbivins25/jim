@@ -6,6 +6,7 @@
 
 #ifndef _WIN32
 #include <termios.h>
+#include <pthread.h>
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -13,7 +14,7 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.9.1"
+#define JIM_VERSION "1.9.3"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
