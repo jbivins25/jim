@@ -221,8 +221,18 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 		THREAD_UNLOCK(T.setMessageLock);
 		editorRefreshScreen();
 
-		int c = editorReadKey();
-		if (c == -1) continue;
+		int e = terminalWaitEvent();
+		int c;
+		
+		if (e & EVENT_INPUT) {
+			c = editorReadKey();
+		}
+	
+		if (e & EVENT_QUEUE) {
+			continue;
+		}
+
+		editorJoinThread();
 
 		if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
 			if (buflen != 0) buf[--buflen] = '\0';

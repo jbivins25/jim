@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
@@ -132,9 +133,9 @@ int getWindowSize(int* rows, int* cols) {
 	}
 }
 
-void editorReadEvent() {
+int editorReadEvent() {
 	int nread;
-	char c;
+	int c;
 	while ((nread = read(eventPipe[0], &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN && errno != EINTR) die("read"); //To allow for Cygwin we check for EAGAIN
 		switch(c) {
@@ -142,21 +143,25 @@ void editorReadEvent() {
 				break;
 		}
 	}
+	return 0;
 }
 
 char terminalWaitEvent() {
-	static struct pollfd fds[2] = {
+	struct pollfd fds[2] = {
 		{ .fd = STDIN_FILENO, .events = POLLIN },
 		{ .fd = eventPipe[0], .events = POLLIN }
 	};
 
-	int ret = poll(fds, 2, -1);
+	int ret;
+	do {
+		ret = poll(fds, 2, -1);
+	} while (ret == -1 && errno == EINTR);
 
 	if (ret == -1) die("poll");
 
 	char events = 0;
 	if (fds[0].revents & POLLIN) events |= EVENT_INPUT;
-	if (fds[1].revens & POLLIN) events |= EVENT_QUEUE;
+	if (fds[1].revents & POLLIN) events |= EVENT_QUEUE;
 
 	return events;
 }
@@ -212,4 +217,27 @@ void setupCrashHandler() {
 	sigaction(SIGSEGV, &sa, NULL);
 	sigaction(SIGABRT, &sa, NULL);
 	#endif
+}
+
+void clearWindow();
+
+static void win_sighandler(int sig) {
+	if (SIGWINCH == sig) {
+		//write(STDOUT_FILENO, "\x1b[2J", 4);
+		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+		E.screenrows -= 2;
+		if (E.win.active) {
+			E.win.screencols = E.screencols/E.win.divider;
+			if (E.win.screencols < E.win.minCols) {
+				clearWindow();
+			}
+			else {
+				E.screencols -= E.win.screencols;
+				E.win.screenrows = E.screenrows;
+			}
+		}
+		redrawWholeScreen = 1;
+		write(eventPipe[1], "r", 1);
+		
+	}
 }

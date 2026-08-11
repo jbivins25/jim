@@ -35,6 +35,7 @@ int editorThreadCreate(editorThreadFunc func, void* arg) {
 		#endif
 
 		if (slot > -1) T.slot[i].state = THREAD_ACTIVE;
+		break;
 	}
 
 	THREAD_UNLOCK(T.threadLock);

@@ -216,8 +216,10 @@ extern char redrawLine[SCREEN_ROW_MAX];
 extern int redrawWholeScreen;
 #ifndef _WIN32
 extern int eventPipe[2];
-#endif
+#else
 extern HANDLE eReadPipe, eWritePipe;
 extern HANDLE hStdin, pipeEvent;
 extern HANDLE hEvents[2];
+#endif
+
 #endif

@@ -1,4 +1,5 @@
 #include "data.h"
+#define WIN_SIG
 #include "terminal.h"
 #include "row.h"
 #include "jimio.h"
