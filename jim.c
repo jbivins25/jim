@@ -16,6 +16,13 @@ editorThreads T = {0};
 int CLEAN_WIN = 1;
 char redrawLine[SCREEN_ROW_MAX] = {0};
 int redrawWholeScreen = 1;
+#ifndef _WIN32
+int eventPipe[2];
+#else
+HANDLE eReadPipe, eWritePipe;
+HANDLE hStdin, pipeEvent;
+HANDLE hEvents[2];
+#endif
 
 void freeEditor() {
 	if (E.win.active) clearWindow();
@@ -29,6 +36,14 @@ void freeEditor() {
 	free(E.win.row);
 	freeTree(&E.tree);
 	freeSyntax(&E.syn);
+	#ifndef _WIN32
+	close(eventPipe[0]);
+	close(eventPipe[1]);
+	#else
+	CloseHandle(eReadPipe);
+	CloseHandle(eWritePipe);
+	CloseHandle(pipeEvent);
+	#endif
 	write(STDOUT_FILENO, "\x1b[?1049l", 8);
 }
 
@@ -70,6 +85,19 @@ void initEditor() {
 	E.sticky = 0;
 	E.keypressCallback = NULL;
 	E.showFPS = 0;
+	#ifndef _WIN32
+	if (pipe(eventPipe) == -1) die("Pipe");
+	#else
+	SECURITY_ATTRIBUTES saAttr;
+	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+	saAttr.bInheritHandle = TRUE;
+	saAttr.lpSecurityDescriptor = NULL;
+	if(!CreatePipe(&eReadPipe, &eWritePipe, &saAttr, 0)) die("Pipe");
+	hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	pipeEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	hEvents[0] = hStdin;
+	hEvents[1] = pipeEvent;
+	#endif
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
 
@@ -125,7 +153,7 @@ int main(int argc, char *argv[]) {
 
 	while (1) {
 		editorRefreshScreen();
-		editorProcessKeypress();
+		editorWaitEvent();
 		editorJoinThread();
 	}
 	return 0;

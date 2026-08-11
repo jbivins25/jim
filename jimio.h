@@ -14,6 +14,7 @@ void editorSetStatusMessage(const char* fmt, ...);
 //Input
 char* editorPrompt(char* prompt, void (*callback)(char *, int));
 void editorMoveCursor(int key);
-void editorProcessKeypress();
+void editorProcessKeypress(int c);
+void editorWaitEvent();
 
 #endif

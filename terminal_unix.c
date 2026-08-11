@@ -51,7 +51,7 @@ int editorReadKey() {
 	char c;
 	nread = read(STDIN_FILENO, &c, 1);
 	if (nread == -1 && errno != EAGAIN && errno != EINTR) die("read"); //To allow for Cygwin we check for EAGAIN
-	if (nread == 0) return KEY_NONE;
+	if (nread == 0) die("null read");
 
 	if (c == '\x1b') {
 		char seq[3];
@@ -130,6 +130,35 @@ int getWindowSize(int* rows, int* cols) {
 		*rows = ws.ws_row;
 		return 0;
 	}
+}
+
+void editorReadEvent() {
+	int nread;
+	char c;
+	while ((nread = read(eventPipe[0], &c, 1)) != 1) {
+		if (nread == -1 && errno != EAGAIN && errno != EINTR) die("read"); //To allow for Cygwin we check for EAGAIN
+		switch(c) {
+			default:
+				break;
+		}
+	}
+}
+
+char terminalWaitEvent() {
+	static struct pollfd fds[2] = {
+		{ .fd = STDIN_FILENO, .events = POLLIN },
+		{ .fd = eventPipe[0], .events = POLLIN }
+	};
+
+	int ret = poll(fds, 2, -1);
+
+	if (ret == -1) die("poll");
+
+	char events = 0;
+	if (fds[0].revents & POLLIN) events |= EVENT_INPUT;
+	if (fds[1].revens & POLLIN) events |= EVENT_QUEUE;
+
+	return events;
 }
 
 #ifdef ASAN_ENABLED

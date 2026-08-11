@@ -199,11 +199,6 @@ void editorRefreshScreen() {
 
 	write(STDOUT_FILENO, ab.b, ab.len);
 	abFree(&ab);
-	struct timespec ts;
-	ts.tv_sec = 0;
-	ts.tv_nsec = 10 * 1000 * 1000; //10 ms, ~100 fps
-
-	nanosleep(&ts, NULL);
 }
 
 void editorSetStatusMessage(const char *fmt, ...) {
@@ -374,10 +369,8 @@ void editorMoveCursor(int key) {
 	E.rx = row ? editorRowCxToRx(row, E.cx) : 0;
 }
 
-void editorProcessKeypress() {
+void editorProcessKeypress(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
-	int c = editorReadKey();
-	if (c == -1) return;
 
 	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
 	if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}
@@ -531,4 +524,19 @@ void editorProcessKeypress() {
 	}
 	if (E.keypressCallback) E.keypressCallback();
 	quit_times = JIM_QUIT_TIMES;
+}
+
+void editorWaitEvent() {
+	char event = terminalWaitEvent();
+
+	if (event & EVENT_INPUT) {
+		int c = editorReadKey();
+		editorProcessKeypress(c);
+	}
+
+	if (event & EVENT_QUEUE) {
+		int e = editorReadEvent();
+		// for processing events, currently only have one event: refresh
+		// editorReadEvent is only called currently to clear the queue
+	}
 }

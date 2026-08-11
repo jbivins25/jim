@@ -32,7 +32,7 @@ void enableRawMode() {
 }
 
 int editorReadKey() {
-	if (!_kbhit()) return KEY_NONE;
+	if (!_kbhit()) die("null read");
 	int c = _getch();
 
 	if (c == 0 || c == 224) {
@@ -78,6 +78,34 @@ int getWindowSize(int* rows, int* cols) {
 	*cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 	*rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 	return 0;
+}
+
+int editorReadEvent() {
+	DWORD bytesAvailable = 0;
+	DWORD bytesRead;
+	int e;
+	if (!PeekNamedPipe(eReadPipe, NULL, 0, NULL, &bytesAvailable, NULL)) die("pipe failed");
+	for (; bytesAvailable > 0; bytesAvailable--) {
+		ReadFile(eReadPipe, &e, 1, &bytesRead, NULL);
+		switch (e) {
+			default:
+				break;
+		}
+	}
+	return 0;
+}
+
+char terminalWaitEvent() {
+	DWORD eventWait = WaitForMultipleObjects(2, hEvents, FALSE, INFINITE);
+
+	switch (eventWait) {
+		case WAIT_OBJECT_0:
+			return EVENT_INPUT;
+
+		case WAIT_OBJECT_0 + 1:
+			return EVENT_QUEUE;
+	}
+	die("no such event");
 }
 
 void setupCrashHandler() {
