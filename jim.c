@@ -85,7 +85,6 @@ void initEditor() {
 	else E.colorful = strstr(term, "256color") != NULL;
 	E.sticky = 0;
 	E.keypressCallback = NULL;
-	E.showFPS = 0;
 	#ifndef _WIN32
 	if (pipe(eventPipe) == -1) die("Pipe");
 	#else

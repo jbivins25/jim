@@ -24,6 +24,10 @@ SETUP_DIR := $(HOME)/.jim
 endif
 
 CFLAGS := -ggdb -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes
+LDFLAGS :=
+ifeq ($(OS),Windows_NT)
+LDFLAGS += -static
+endif
 
 SANITIZE :=
 ifneq ($(OS),Windows_NT)
@@ -93,13 +97,13 @@ endif
 ###########################################################################
 
 $(TARGET): $(DEBUG_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(DEBUG_DIR)/$(TARGET): $(DEBUG_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(RELEASE_DIR)/$(TARGET): $(RELEASE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 ###########################################################################
 # Compilation

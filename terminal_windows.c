@@ -32,7 +32,7 @@ void enableRawMode() {
 }
 
 int editorReadKey() {
-	if (!_kbhit()) die("null read");
+	if (!_kbhit()) return -1;
 	int c = _getch();
 
 	if (c == 0 || c == 224) {
@@ -106,6 +106,7 @@ char terminalWaitEvent() {
 			return EVENT_QUEUE;
 	}
 	die("no such event");
+	return -1;
 }
 
 void setupCrashHandler() {
