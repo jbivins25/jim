@@ -169,6 +169,7 @@ typedef pthread_mutex_t editor_mutex_t;
 #define THREAD_LOCK(m) pthread_mutex_lock(&(m))
 #define THREAD_UNLOCK(m) pthread_mutex_unlock(&(m))
 #define THREAD_TRY_UNLOCK(m) pthread_mutex_trylock(&(m))
+typedef void (*editorThreadFunc)(void *);
 #else
 typedef HANDLE editor_thread_t;
 typedef CRITICAL_SECTION editor_mutex_t;
@@ -177,8 +178,8 @@ typedef CRITICAL_SECTION editor_mutex_t;
 #define THREAD_LOCK(m) EnterCriticalSection(&(m))
 #define THREAD_UNLOCK(m) LeaveCriticalSection(&(m))
 #define THREAD_TRY_UNLOCK(m) !TryEnterCriticalSection(&(m)) //Returns 1 if it fails
+typedef unsigned __stdcall (*editorThreadFunc)(void *);
 #endif
-typedef void (*editorThreadFunc)(void *);
 
 enum threadState {
 	THREAD_UNUSED,
@@ -202,6 +203,7 @@ typedef struct {
 	editor_mutex_t redrawLock;
 	editor_mutex_t windowThreadLock;
 	editor_mutex_t setMessageLock;
+	editor_mutex_t eventPipeLock;
 } editorThreads;
 
 int editorThreadCreate(editorThreadFunc func, void* arg);

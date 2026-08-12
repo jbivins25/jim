@@ -6,6 +6,8 @@
 #include "compat.h"
 #include <conio.h>
 
+void clearWindow(); //Needed to eliminate including other headers in terminal for window resizing
+
 void die(const char *s) {
 	disableRawMode();
 	write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on error
@@ -23,7 +25,7 @@ void enableRawMode() {
 	HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
 	GetConsoleMode(hin, &E.orig_termios);
 	atexit(disableRawMode);
-	DWORD raw = E.orig_termios & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
+	DWORD raw = E.orig_termios & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT);
 	SetConsoleMode(hin, raw);
 	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
 	DWORD outmode;
@@ -32,7 +34,29 @@ void enableRawMode() {
 }
 
 int editorReadKey() {
-	if (!_kbhit()) return -1;
+	if (!_kbhit()) {
+		DWORD numRead;
+		INPUT_RECORD irWin[1];
+		if (ReadConsoleInput(GetStdHandle(STD_INPUT_HANDLE), irWin, 1, &numRead) && irWin[0].EventType == WINDOW_BUFFER_SIZE_EVENT) {
+			if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+			E.screenrows -= 2;
+			if (E.win.active) {
+				E.win.screencols = E.screencols/E.win.divider;
+				if (E.win.screencols < E.win.minCols) {
+					clearWindow();
+				}
+				else {
+					E.screencols -= E.win.screencols;
+					E.win.screenrows = E.screenrows;
+				}
+			}
+			THREAD_LOCK(T.redrawLock);
+			redrawWholeScreen = 1;
+			CLEAN_WIN = 0;
+			THREAD_UNLOCK(T.redrawLock);
+		}
+		return -1;
+	}
 	int c = _getch();
 
 	if (c == 0 || c == 224) {

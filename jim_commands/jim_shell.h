@@ -53,8 +53,13 @@ void shellProcessKey(int c) {
 	quit_times = JIM_QUIT_TIMES;
 }
 
+typedef struct {
+	int argc;
+	char** args;
+} ThreadArgs;
+
 #ifndef _WIN32
-int jim_shell(const int argc, const char* args[]) {
+void Worker(void* param) {
 	if ( argc < 1 ) return -101;
 	int pipefd[2];
 	if (pipe(pipefd) == -1) return -102;
@@ -100,7 +105,7 @@ int jim_shell(const int argc, const char* args[]) {
 }
 
 #else
-int win_execvp(const char* program, const char* argv[], const int argc, HANDLE hStdOut, PROCESS_INFORMATION* pi) {
+int win_execvp(char* program, char* argv[], int argc, HANDLE hStdOut, PROCESS_INFORMATION* pi) {
 	STARTUPINFOA si;
 	ZeroMemory(&si, sizeof(si));
 	ZeroMemory(pi, sizeof(*pi));
@@ -134,8 +139,17 @@ int win_execvp(const char* program, const char* argv[], const int argc, HANDLE h
 	return 0;
 }
 
-int jim_shell(const int argc, const char* args[]) {
-	if (argc < 1) return -111;
+unsigned __stdcall Worker(void* lpParam) {
+	ThreadArgs* t = (ThreadArgs*)lpParam;
+	int argc = t->argc;
+	char** args = t->args;
+
+	if (argc < 1) {
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, Not enough arguments", -111);
+		THREAD_UNLOCK(T.setMessageLock);
+		return 1;
+	}
 
 	SECURITY_ATTRIBUTES sa = {0};
 	sa.nLength = sizeof(sa);
@@ -144,7 +158,11 @@ int jim_shell(const int argc, const char* args[]) {
 	
 	HANDLE hRead = NULL, hWrite = NULL;
 
-	if (!CreatePipe(&hRead, &hWrite, &sa, 0)) return -112;
+	if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, Could not create pipe", -112);
+		THREAD_UNLOCK(T.setMessageLock);
+	}
 
 	SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
 	
@@ -153,44 +171,13 @@ int jim_shell(const int argc, const char* args[]) {
 	if (win_execvp(args[0], args, argc, hWrite, &pi) != 0) {
 		CloseHandle(hRead);
 		CloseHandle(hWrite);
-		return -113;
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, execvp failed", -113);
+		THREAD_UNLOCK(T.setMessageLock);
+		return 1;
 	}
 	
 	CloseHandle(hWrite);
-
-	WaitForSingleObject(pi.hProcess, INFINITE);
-
-	DWORD exitCode;
-	GetExitCodeProcess(pi.hProcess, &exitCode);
-
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
-
-	if (exitCode != 0) {
-		CloseHandle(hRead);
-		switch (exitCode) {
-			case(0x1):
-				return -101;
-			case(0x2):
-			case(0x3):
-				return -102;
-			case(0x5):
-				return -105;
-			case(0xC0000005):
-				return -107;
-			case(0x8):
-			case(0xC00000FD):
-				return -108;
-			default:
-				return -109;
-		}
-	}
-
-	if (!E.win.active || strcmp("Terminal", E.win.header)) { 
-		char* header = malloc(9);
-		strcpy(header, "Terminal");
-		windowSetup(1, 10, 2, shellProcessKey, header);
-	}
 
 	char buf[4096];
 	ZeroMemory(buf, sizeof(buf));
@@ -198,23 +185,44 @@ int jim_shell(const int argc, const char* args[]) {
 	size_t lineLen = 0;
 	DWORD bytesRead;
 
-	while (ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL) && bytesRead > 0) {
-		for (DWORD i = 0; i < bytesRead; i++) {
-			char c = buf[i];
-			if (c == '\r') continue;
-			if (c == '\n') {
-				if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
-				lineLen = 0;
-			}
-			else {
-				if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
+	do {
+		while (ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL) && bytesRead > 0) {
+			for (DWORD i = 0; i < bytesRead; i++) {
+				char c = buf[i];
+				if (c == '\r') continue;
+				if (c == '\n') {
+					if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
+					lineLen = 0;
+					int start = E.win.numrows-1;
+					if (E.win.numrows > E.win.screenrows - 1) {
+						E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+						start = 0;
+					}
+					else {
+						E.win.yOffset = 0;
+					}
+					E.win.xOffset = 0;
+					THREAD_LOCK(T.redrawLock);
+					for (int i = start; i < E.win.screenrows; i++) {
+						redrawLine[i] |= REDRAW_WIN;
+					}
+					THREAD_UNLOCK(T.redrawLock);
+					char e = 'r';
+					DWORD bytesWritten;
+					THREAD_LOCK(T.eventPipeLock);
+					WriteFile(eWritePipe, &e, 1, &bytesWritten, NULL);
+					THREAD_UNLOCK(T.eventPipeLock);
+				}
+				else {
+					if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
+					else { if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow(); lineLen = 0; }
+				}
 			}
 		}
-	}
+	} while (WaitForSingleObject(pi.hProcess,0) != WAIT_OBJECT_0);
 
 	if (lineLen) windowAddRow(line, E.win.numrows, (int)lineLen);
 
-	CloseHandle(hRead);
 	if (E.win.numrows > E.win.screenrows - 1) {
 		E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
 	}
@@ -227,9 +235,83 @@ int jim_shell(const int argc, const char* args[]) {
 		redrawLine[i] |= REDRAW_WIN;
 	}
 	THREAD_UNLOCK(T.redrawLock);
+
+	CloseHandle(hRead);
+
+	DWORD exitCode;
+	GetExitCodeProcess(pi.hProcess, &exitCode);
+
+	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
+
+	if (exitCode != 0) {
+		CloseHandle(hRead);
+		switch (exitCode) {
+			case(0x1):
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, Process encountered failure", -101);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+			case(0x2):
+			case(0x3):
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, File or path not found", -102);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+			case(0x5):
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, Access denied", -105);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+			case(0xC0000005):
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, Access violation", -107);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+			case(0x8):
+			case(0xC00000FD):
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, Not enough memory or stack overflow", -108);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+			default:
+				THREAD_LOCK(T.setMessageLock);
+				editorSetStatusMessage("Terminal Thread Error: %d, Undefined exit error code", -109);
+				THREAD_UNLOCK(T.setMessageLock);
+				return 1;
+		}
+	}
+
+	for (int i = 0; i < argc; i++) {
+		free(args[i]);
+	}
+	free(args);
 	return 0;
 }
-
 #endif
+
+int jim_shell(const int argc, const char* args[]) {
+	if (!E.win.active || strcmp("Terminal", E.win.header)) { 
+		char* header = malloc(9);
+		strcpy(header, "Terminal");
+		windowSetup(1, 10, 2, shellProcessKey, header);
+	}
+
+	char** argCopy = malloc((argc+1)*sizeof(char*));
+
+	for (int i = 0; i < argc; i++) {
+		argCopy[i] = strdup(args[i]);
+	}
+
+	argCopy[argc] = NULL;
+
+	ThreadArgs* tArgs = malloc(sizeof(ThreadArgs));
+	tArgs->argc = argc;
+	tArgs->args = argCopy;
+
+	editorThreadCreate(Worker, (void*)tArgs);
+
+	return 0;
+}
 
 #endif

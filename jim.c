@@ -23,6 +23,7 @@ int eventPipe[2];
 HANDLE eReadPipe, eWritePipe;
 HANDLE hStdin, pipeEvent;
 HANDLE hEvents[2];
+OVERLAPPED ol = {0};
 #endif
 
 void freeEditor() {
@@ -53,6 +54,7 @@ void freeLocks() {
 	DELETE_LOCK(T.redrawLock);
 	DELETE_LOCK(T.windowThreadLock);
 	DELETE_LOCK(T.setMessageLock);
+	DELETE_LOCK(T.eventPipeLock);
 }
 
 void initEditor() {
@@ -93,10 +95,17 @@ void initEditor() {
 	saAttr.bInheritHandle = TRUE;
 	saAttr.lpSecurityDescriptor = NULL;
 	if(!CreatePipe(&eReadPipe, &eWritePipe, &saAttr, 0)) die("Pipe");
+	eReadPipe = CreateNamedPipe(TEXT("\\\\.\\pipe\\eventPipe"), PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 0, 0, 0, &saAttr);
+	eWritePipe = CreateFile(TEXT("\\\\.\\pipe\\eventPipe"), GENERIC_WRITE, 0, &saAttr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+	if (eReadPipe == INVALID_HANDLE_VALUE || eWritePipe == INVALID_HANDLE_VALUE) die("Pipe creation failed");
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 	pipeEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	ol.hEvent = pipeEvent;
 	hEvents[0] = hStdin;
 	hEvents[1] = pipeEvent;
+	char buf[8];
+	DWORD bytesRead;
+	ReadFile(eReadPipe, buffer, sizeof(buffer), &bytesRead, &ol);
 	#endif
 	write(STDOUT_FILENO, "\x1b[?1049h", 8);
 }
@@ -106,6 +115,7 @@ void initLocks() {
 	CREATE_LOCK(T.redrawLock);
 	CREATE_LOCK(T.windowThreadLock);
 	CREATE_LOCK(T.setMessageLock);
+	CREATE_LOCK(T.eventPipeLock);
 }
 
 #ifndef _WIN32

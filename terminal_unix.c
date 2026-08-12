@@ -219,7 +219,7 @@ void setupCrashHandler() {
 	#endif
 }
 
-void clearWindow();
+void clearWindow(); //Needed to not include any extra headers, only used for window resizing
 
 static void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {

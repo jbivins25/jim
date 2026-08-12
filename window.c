@@ -135,6 +135,7 @@ void drawWindow(struct abuf* ab, int y) {
 }
 
 int windowAddRow(char* text, int row, size_t len) {
+	if (!E.win.active) return -1;
 	if (row < 0 || row > E.win.numrows || text == NULL) return -1;
 	E.win.row = realloc(E.win.row, sizeof(erow) * (E.win.numrows + 1));
 	if (E.win.row == NULL) return -1;
