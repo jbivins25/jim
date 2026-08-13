@@ -20,7 +20,6 @@ void exitSelect() {
 	for (int i = start; i < end; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
 	E.mode = NORMAL;	
@@ -156,7 +155,6 @@ void editorHghlt(int c) {
 	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
 	    if (c == ARROW_UP && E.cy+1-E.rowoff < E.screenrows) redrawLine[E.cy+1-E.rowoff] |= REDRAW_DEF;
 	    else if (E.cy-1-E.rowoff >= 0) redrawLine[E.cy-1-E.rowoff] |= REDRAW_DEF;
-            CLEAN_WIN = 0;
 	    THREAD_UNLOCK(T.redrawLock);
             break;
             
@@ -179,7 +177,6 @@ void editorHghlt(int c) {
 	    THREAD_LOCK(T.redrawLock);
 	    if (E.cy+1-E.rowoff < E.screenrows) redrawLine[E.cy+1-E.rowoff] |= REDRAW_DEF;
 	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-            CLEAN_WIN = 0;
 	    THREAD_UNLOCK(T.redrawLock);
 	    break;
             
@@ -202,7 +199,6 @@ void editorHghlt(int c) {
 	    THREAD_LOCK(T.redrawLock);
 	    if (E.cy-1-E.rowoff > 0) redrawLine[E.cy-1-E.rowoff] |= REDRAW_DEF; 
 	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-            CLEAN_WIN = 0;
 	    THREAD_UNLOCK(T.redrawLock);
 	    break;
 
@@ -223,7 +219,6 @@ void editorMoveLine() {
 	for (int i = 0; i < E.screenrows; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 }
 
@@ -247,7 +242,6 @@ void editorPaste() {
 	for (int i = start; i < end; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 }
 
@@ -283,7 +277,6 @@ void editorDelSelect() {
 	for (int i = start; i < E.screenrows; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 }
 
@@ -312,7 +305,7 @@ void editorInsertChar(int c) {
 	}
 	E.cx++;
 	E.sticky = editorRowCxToRx(&E.row[E.cy],E.cx);
-	if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; CLEAN_WIN = 0; THREAD_UNLOCK(T.redrawLock); }
+	if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
 }
 
 void editorInsertNewline() {
@@ -355,7 +348,6 @@ void editorInsertNewline() {
 	for ( int i = line; i < E.screenrows; i++ ) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	E.urType = WRITE;
 }
@@ -386,7 +378,7 @@ void editorDelChar() {
 		}
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
-		if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; CLEAN_WIN = 0; THREAD_UNLOCK(T.redrawLock); }
+		if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
 	}
 	else {
 		if (E.urMode) {
@@ -409,7 +401,6 @@ void editorDelChar() {
 		for ( int i = line; i < E.screenrows; i++ ) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
-		CLEAN_WIN = 0;
 		THREAD_UNLOCK(T.redrawLock);
 	}
 	row = &E.row[E.cy];
@@ -539,7 +530,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			if ((row->hl_open_comment != in_comment && E.syn.flags & HGHLT_ML_CM)) row->hl_open_comment = in_comment;
 			if ((row->hl_open_string != in_string && E.syn.flags & HGHLT_ML_STRINGS)) row->hl_open_string = in_string;
 		}
-		if (row->ind - offset < screenrows && row->ind - offset >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF; CLEAN_WIN = 0; THREAD_UNLOCK(T.redrawLock); }
+		if (row->ind - offset < screenrows && row->ind - offset >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
 	} while (changed && (row->ind + 1 < numrows));
 }
 

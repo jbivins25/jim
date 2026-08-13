@@ -43,13 +43,11 @@ void editorScroll() {
 		for (int i = 0; i < E.screenrows; i++) {
 			redrawLine[i] |= REDRAW_DEF;
 		}
-		CLEAN_WIN = 0;
 		THREAD_UNLOCK(T.redrawLock);
 	}
 }
 
 void editorDrawRows(struct abuf* ab) {
-	if (CLEAN_WIN) return;
 	char buf[32];
 	static int set = 1;
 	static char def_fg[8];
@@ -121,7 +119,6 @@ void editorDrawRows(struct abuf* ab) {
 		}
 	}
 	redrawWholeScreen = 0;
-	CLEAN_WIN = 1;
 }
 
 void editorDrawStatusBar(struct abuf *ab) {
@@ -202,6 +199,7 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 
 	size_t buflen = 0;
 	buf[0] = '\0';
+	if (E.win.active && !strcmp(E.win.header, "Terminal")) { buflen++; buf[0] = '!', buf[1] = '\0'; }
 	while(1) {
 		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage(prompt, buf);

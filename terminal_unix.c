@@ -1,4 +1,5 @@
 #include "data.h"
+#define WIN_SIG
 #include "terminal.h"
 #include <stdio.h>
 #include <errno.h>
@@ -221,7 +222,7 @@ void setupCrashHandler() {
 
 void clearWindow(); //Needed to not include any extra headers, only used for window resizing
 
-static void win_sighandler(int sig) {
+void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {
 		//write(STDOUT_FILENO, "\x1b[2J", 4);
 		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");

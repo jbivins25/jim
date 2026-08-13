@@ -52,7 +52,6 @@ int editorReadKey() {
 			}
 			THREAD_LOCK(T.redrawLock);
 			redrawWholeScreen = 1;
-			CLEAN_WIN = 0;
 			THREAD_UNLOCK(T.redrawLock);
 		}
 		return -1;

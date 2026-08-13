@@ -212,7 +212,6 @@ int editorJoinThread();
 
 extern struct editorConfig E;
 extern editorThreads T;
-extern int CLEAN_WIN;
 extern char redrawLine[SCREEN_ROW_MAX];
 extern int redrawWholeScreen;
 #ifndef _WIN32

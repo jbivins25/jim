@@ -45,7 +45,6 @@ int jim_select(const int argc, const char* args[]) {
 	E.cx = E.selected[3];
 	THREAD_LOCK(T.redrawLock);
 	redrawWholeScreen = 1;
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	return 0;
 }

@@ -16,7 +16,7 @@ int editorReadEvent();
 char terminalWaitEvent();
 #ifndef _WIN32
 #ifdef WIN_SIG
-static void win_sighandler(int sig);
+void win_sighandler(int sig);
 #endif
 #endif
 

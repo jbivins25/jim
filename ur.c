@@ -90,7 +90,6 @@ void undo() {
 	for ( int i =  0; i < E.screenrows; i++ ) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	E.tree.curr = E.tree.curr->parent;
 	E.urMode = 1;
@@ -131,7 +130,6 @@ void redo() {
 	for (int i = 0; i < E.screenrows; i++) {
 		redrawLine[i] |= REDRAW_DEF;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	E.urMode = 1;
 }
@@ -219,7 +217,6 @@ void drawTree() {
 	for ( int i = 0; i < redraw; i++ ) {
 		redrawLine[i] |= REDRAW_WIN;
 	}
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
 }

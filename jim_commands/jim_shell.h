@@ -60,48 +60,104 @@ typedef struct {
 
 #ifndef _WIN32
 void Worker(void* param) {
-	if ( argc < 1 ) return -101;
+	ThreadArgs* t = (ThreadArgs*)param;
+	int argc = t->argc;
+	char** args = t->args;
+
+	if ( argc < 1 ) {
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, Not enough arguments", -111);
+		THREAD_UNLOCK(T.setMessageLock);
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
+		return;
+	}
 	int pipefd[2];
-	if (pipe(pipefd) == -1) return -102;
+	if (pipe(pipefd) == -1) {
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, Could not create pipe", -112);
+		THREAD_UNLOCK(T.setMessageLock);
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
+		return;
+	}
 	pid_t pid = fork();
 	if (pid == 0) {
 		close(pipefd[0]);
 		dup2(pipefd[1], STDOUT_FILENO);
 		close(pipefd[1]);
 		execvp(args[0], (char* const*)args);
-		exit(-103);
+		exit(-101);
 	}
-	if (pid < 0) return -104;
+	if (pid < 0) {
+		THREAD_LOCK(T.setMessageLock);
+		editorSetStatusMessage("Terminal Thread Error: %d, Fork failed," -113);
+		THREAD_UNLOCK(T.setMessageLock);
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
+		return;
+	}
 	close(pipefd[1]);
+
 	int ret_val;
-	waitpid(pid, &ret_val, 0);
-	if (WEXITSTATUS(ret_val) != 0) return (signed char)WEXITSTATUS(ret_val);
-	if (!E.win.active || strcmp("Terminal", E.win.header)) { 
-		char* header = malloc(9);
-		strcpy(header, "Terminal");
-		windowSetup(1, 10, 2, shellProcessKey, header);
-	}
 	FILE* fp = fdopen(pipefd[0], "r");
 	char* line = NULL;
 	size_t linecap = 0;
 	ssize_t linelen;
-	while ((linelen = getline(&line, &linecap, fp)) != -1) {
-		while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
-		if(windowAddRow(line, E.win.numrows, linelen) < 0) clearWindow();
+	linelen = getline(&line, &linecap, fp);
+	char redrawChar = 'r';
+
+	do {
+		while (linelen > 0) {
+			while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
+			if(windowAddRow(line, E.win.numrows, linelen) < 0) clearWindow();
+		
+			if (E.win.numrows > E.win.screenrows - 1) {
+				E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+			}
+				else {
+				E.win.yOffset = 0;
+			}
+			E.win.xOffset = 0;
+			THREAD_LOCK(T.redrawLock);
+			for (int i = 0; i < E.win.screenrows; i++) {
+				redrawLine[i] |= REDRAW_WIN;
+			}
+			THREAD_UNLOCK(T.redrawLock);
+			THREAD_LOCK(T.eventPipeLock);
+			write(eventPipe[1], &redrawChar, 1);
+			THREAD_UNLOCK(T.eventPipeLock);
+			linelen = getline(&line, &linecap, fp);
+		}
+	} while ((linelen = getline(&line, &linecap, fp)) != -1 || waitpid(pid, &ret_val, WNOHANG) == 0);
+
+	ret_val = (signed char)WEXITSTATUS(ret_val);
+	if (WEXITSTATUS(ret_val) != 0) {
+		if (ret_val != -101) {
+			THREAD_LOCK(T.setMessageLock);
+			editorSetStatusMessage("Terminal Thread Error: %d, General Thread Error", ret_val);
+			THREAD_UNLOCK(T.setMessageLock);
+		}
+		else {
+			THREAD_LOCK(T.setMessageLock);
+			editorSetStatusMessage("Terminal Thread Error: %d, execvp failed", ret_val);
+			THREAD_UNLOCK(T.setMessageLock);
+		}
 	}
-	if (E.win.numrows > E.win.screenrows - 1) {
-		E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
-	}
-	else {
-		E.win.yOffset = 0;
-	}
-	E.win.xOffset = 0;
-	for (int i = 0; i < E.win.screenrows; i++) {
-		redrawLine[i] |= REDRAW_WIN;
-	}
+
 	free(line);
 	fclose(fp);
-	return 0;
+	for (int i = 0; i < argc; i++) {
+		free(args[i]);
+	}
+	free(args);
+	return;
 }
 
 #else
@@ -148,6 +204,10 @@ unsigned __stdcall Worker(void* lpParam) {
 		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage("Terminal Thread Error: %d, Not enough arguments", -111);
 		THREAD_UNLOCK(T.setMessageLock);
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
 		return 1;
 	}
 
@@ -174,6 +234,10 @@ unsigned __stdcall Worker(void* lpParam) {
 		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage("Terminal Thread Error: %d, execvp failed", -113);
 		THREAD_UNLOCK(T.setMessageLock);
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
 		return 1;
 	}
 	
@@ -251,35 +315,40 @@ unsigned __stdcall Worker(void* lpParam) {
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, Process encountered failure", -101);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 			case(0x2):
 			case(0x3):
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, File or path not found", -102);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 			case(0x5):
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, Access denied", -105);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 			case(0xC0000005):
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, Access violation", -107);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 			case(0x8):
 			case(0xC00000FD):
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, Not enough memory or stack overflow", -108);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 			default:
 				THREAD_LOCK(T.setMessageLock);
 				editorSetStatusMessage("Terminal Thread Error: %d, Undefined exit error code", -109);
 				THREAD_UNLOCK(T.setMessageLock);
-				return 1;
+				break;
 		}
+		for (int i = 0; i < argc; i++) {
+			free(args[i]);
+		}
+		free(args);
+		return 1;
 	}
 
 	for (int i = 0; i < argc; i++) {
@@ -291,11 +360,26 @@ unsigned __stdcall Worker(void* lpParam) {
 #endif
 
 int jim_shell(const int argc, const char* args[]) {
+	if (argc < 1) return -1;
 	if (!E.win.active || strcmp("Terminal", E.win.header)) { 
 		char* header = malloc(9);
 		strcpy(header, "Terminal");
 		windowSetup(1, 10, 2, shellProcessKey, header);
 	}
+	
+	int commandLen = 6;
+	for (int i = 0; i < argc; i++) commandLen += strlen(args[i]);
+	char* command = malloc(commandLen);
+	int offset = snprintf(command, commandLen, ">>> %s ", args[0]);
+	for (int i = 1; i < argc; i++) {
+		size_t len = strlen(args[i]);
+		memcpy(command+offset, args[i], len);
+		offset += len;
+
+		command[offset++] = (i < argc - 1) ? ' ' : '\0';
+	}
+	windowAddRow(command, E.win.numrows, commandLen);
+
 
 	char** argCopy = malloc((argc+1)*sizeof(char*));
 

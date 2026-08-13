@@ -14,7 +14,6 @@
 
 struct editorConfig E;
 editorThreads T = {0};
-int CLEAN_WIN = 1;
 char redrawLine[SCREEN_ROW_MAX] = {0};
 int redrawWholeScreen = 1;
 #ifndef _WIN32
@@ -117,28 +116,6 @@ void initLocks() {
 	CREATE_LOCK(T.setMessageLock);
 	CREATE_LOCK(T.eventPipeLock);
 }
-
-#ifndef _WIN32
-static void win_sighandler(int sig) {
-	if (SIGWINCH == sig) {
-		//write(STDOUT_FILENO, "\x1b[2J", 4);
-		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
-		E.screenrows -= 2;
-		if (E.win.active) {
-			E.win.screencols = E.screencols/E.win.divider;
-			if (E.win.screencols < E.win.minCols) {
-				clearWindow();
-			}
-			else {
-				E.screencols -= E.win.screencols;
-				E.win.screenrows = E.screenrows;
-			}
-		}
-		redrawWholeScreen = 1;
-		editorRefreshScreen();
-	}
-}
-#endif
 
 int main(int argc, char *argv[]) {
 	enableRawMode();

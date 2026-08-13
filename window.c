@@ -34,7 +34,6 @@ void windowSetup(char location, int minCols, int divider, void (*winHandler)(int
 	E.win.header = header;
 	THREAD_LOCK(T.redrawLock);
 	redrawWholeScreen = 1;
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 	if (E.win.handler) E.mode = WINDOW;
 }
@@ -48,7 +47,6 @@ void clearWindow() {
 	memset(&E.win, 0, sizeof(windowConfig));
 	THREAD_LOCK(T.redrawLock);
 	redrawWholeScreen = 1;
-	CLEAN_WIN = 0;
 	THREAD_UNLOCK(T.redrawLock);
 }
 
@@ -209,7 +207,6 @@ void windowPageScroll(int c) {
 		for (int i = 0; i < E.win.screenrows; i++) {
 			redrawLine[i] |= REDRAW_WIN;
 		}
-		CLEAN_WIN = 0;
 		THREAD_UNLOCK(T.redrawLock);
 	}
 }
