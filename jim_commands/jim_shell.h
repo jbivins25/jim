@@ -286,7 +286,28 @@ unsigned __stdcall Worker(void* lpParam) {
 			}
 			else {
 				if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
-				else { if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow(); lineLen = 0; }
+				else { 
+					if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
+					lineLen = 0; 
+					if (E.win.numrows > E.win.screenrows - 1) {
+						E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+					}
+					else {
+						E.win.yOffset = 0;
+					}
+					E.win.xOffset = 0;
+
+					THREAD_LOCK(T.redrawLock);
+					for (int i = 0; i < E.win.screenrows; i++) {
+						redrawLine[i] |= REDRAW_WIN;
+					}
+					THREAD_UNLOCK(T.redrawLock);
+			
+					THREAD_LOCK(T.eventPipeLock);
+					WriteFile(eWritePipe, &e, 1, NULL, NULL);
+					THREAD_UNLOCK(T.eventPipeLock);
+					SetEvent(hEvents[1]);
+				}
 			}
 		}
 		
@@ -302,18 +323,18 @@ unsigned __stdcall Worker(void* lpParam) {
 			E.win.yOffset = 0;
 		}
 		E.win.xOffset = 0;
+	
+		THREAD_LOCK(T.redrawLock);
+		for (int i = 0; i < E.win.screenrows; i++) {
+			redrawLine[i] |= REDRAW_WIN;
+		}
+		THREAD_UNLOCK(T.redrawLock);
+	
+		THREAD_LOCK(T.eventPipeLock);
+		WriteFile(eWritePipe, &e, 1, NULL, NULL);
+		THREAD_UNLOCK(T.eventPipeLock);
+		SetEvent(hEvents[1]);
 	}
-	THREAD_LOCK(T.redrawLock);
-	for (int i = 0; i < E.win.screenrows; i++) {
-		redrawLine[i] |= REDRAW_WIN;
-	}
-	THREAD_UNLOCK(T.redrawLock);
-
-	THREAD_LOCK(T.eventPipeLock);
-	WriteFile(eWritePipe, &e, 1, NULL, NULL);
-	THREAD_UNLOCK(T.eventPipeLock);
-	SetEvent(hEvents[1]);
-
 	CloseHandle(hRead);
 
 	WaitForSingleObject(pi.hProcess,INFINITE);

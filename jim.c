@@ -92,8 +92,7 @@ void initEditor() {
 	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
 	saAttr.bInheritHandle = TRUE;
 	saAttr.lpSecurityDescriptor = NULL;
-	eReadPipe = CreateNamedPipe(TEXT("\\\\.\\pipe\\eventPipe"), PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 0, 0, 0, &saAttr);
-	eWritePipe = CreateFile(TEXT("\\\\.\\pipe\\eventPipe"), GENERIC_WRITE, 0, &saAttr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+	CreatePipe(&eReadPipe, &eWritePipe, &saAttr, 0);
 	if (eReadPipe == INVALID_HANDLE_VALUE || eWritePipe == INVALID_HANDLE_VALUE) die("Pipe creation failed");
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 	hEvents[0] = hStdin;

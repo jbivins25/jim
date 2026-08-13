@@ -107,6 +107,7 @@ int editorReadEvent() {
 	DWORD bytesAvailable = 0;
 	DWORD bytesRead;
 	int e;
+	THREAD_LOCK(T.eventPipeLock);
 	if (!PeekNamedPipe(eReadPipe, NULL, 0, NULL, &bytesAvailable, NULL)) die("pipe failed");
 	for (; bytesAvailable > 0; bytesAvailable--) {
 		ReadFile(eReadPipe, &e, 1, &bytesRead, NULL);
@@ -115,6 +116,8 @@ int editorReadEvent() {
 				break;
 		}
 	}
+	ResetEvent(hEvents[1]);
+	THREAD_UNLOCK(T.eventPipeLock);
 	return 0;
 }
 
@@ -126,7 +129,6 @@ char terminalWaitEvent() {
 			return EVENT_INPUT;
 
 		case WAIT_OBJECT_0 + 1:
-			ResetEvent(hEvents[1]);
 			return EVENT_QUEUE;
 	}
 	die("no such event");
