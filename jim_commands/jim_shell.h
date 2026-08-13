@@ -222,6 +222,7 @@ unsigned __stdcall Worker(void* lpParam) {
 		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage("Terminal Thread Error: %d, Could not create pipe", -112);
 		THREAD_UNLOCK(T.setMessageLock);
+		return 1;
 	}
 
 	SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
@@ -249,53 +250,59 @@ unsigned __stdcall Worker(void* lpParam) {
 	size_t lineLen = 0;
 	DWORD bytesRead;
 	char e = 'r';
-	ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL);
 
-	do {
-		while (bytesRead > 0) {
-			for (DWORD i = 0; i < bytesRead; i++) {
-				char c = buf[i];
-				if (c == '\r') continue;
-				if (c == '\n') {
-					if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
-					lineLen = 0;
-					int start = E.win.numrows-1;
-					if (E.win.numrows > E.win.screenrows - 1) {
-						E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
-						start = 0;
-					}
-					else {
-						E.win.yOffset = 0;
-					}
-					E.win.xOffset = 0;
-					THREAD_LOCK(T.redrawLock);
-					for (int i = start; i < E.win.screenrows; i++) {
-						redrawLine[i] |= REDRAW_WIN;
-					}
-					THREAD_UNLOCK(T.redrawLock);
-					THREAD_LOCK(T.eventPipeLock);
-					WriteFile(eWritePipe, &e, 1, NULL, NULL);
-					THREAD_UNLOCK(T.eventPipeLock);
-					SetEvent(hEvents[1]);
+	while(1) {
+		if (!PeekNamedPipe(hRead, NULL, 0, NULL, &bytesRead, NULL)) break;
+		if (bytesRead == 0) continue;
+
+		BOOL success = ReadFile(hRead, buf, min(bytesRead,sizeof(buf)), &bytesRead, NULL);
+		
+		if (!success) {
+			if (GetLastError() == ERROR_BROKEN_PIPE) break;
+		}
+
+		for (DWORD i = 0; i < bytesRead; i++) {
+			char c = buf[i];
+			if (c == '\r') continue;
+			if (c == '\n') {
+				if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
+				lineLen = 0;
+				if (E.win.numrows > E.win.screenrows - 1) {
+					E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
 				}
 				else {
-					if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
-					else { if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow(); lineLen = 0; }
+					E.win.yOffset = 0;
 				}
+				E.win.xOffset = 0;
+				THREAD_LOCK(T.redrawLock);
+				for (int i = 0; i < E.win.screenrows; i++) {
+					redrawLine[i] |= REDRAW_WIN;
+				}
+				THREAD_UNLOCK(T.redrawLock);
+				THREAD_LOCK(T.eventPipeLock);
+				WriteFile(eWritePipe, &e, 1, NULL, NULL);
+				THREAD_UNLOCK(T.eventPipeLock);
+				SetEvent(hEvents[1]);
 			}
-			ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL);
+			else {
+				if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
+				else { if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow(); lineLen = 0; }
+			}
 		}
-	} while ((ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL) && bytesRead > 0) || WaitForSingleObject(pi.hProcess,0) != WAIT_OBJECT_0);
-
-	if (lineLen) windowAddRow(line, E.win.numrows, (int)lineLen);
-
-	if (E.win.numrows > E.win.screenrows - 1) {
-		E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+		
 	}
-	else {
-		E.win.yOffset = 0;
+
+	if (lineLen) {
+		windowAddRow(line, E.win.numrows, (int)lineLen);
+
+		if (E.win.numrows > E.win.screenrows - 1) {
+			E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+		}
+		else {
+			E.win.yOffset = 0;
+		}
+		E.win.xOffset = 0;
 	}
-	E.win.xOffset = 0;
 	THREAD_LOCK(T.redrawLock);
 	for (int i = 0; i < E.win.screenrows; i++) {
 		redrawLine[i] |= REDRAW_WIN;
@@ -309,6 +316,8 @@ unsigned __stdcall Worker(void* lpParam) {
 
 	CloseHandle(hRead);
 
+	WaitForSingleObject(pi.hProcess,INFINITE);
+
 	DWORD exitCode;
 	GetExitCodeProcess(pi.hProcess, &exitCode);
 
@@ -316,7 +325,6 @@ unsigned __stdcall Worker(void* lpParam) {
 	CloseHandle(pi.hProcess);
 
 	if (exitCode != 0) {
-		CloseHandle(hRead);
 		switch (exitCode) {
 			case(0x1):
 				THREAD_LOCK(T.setMessageLock);
