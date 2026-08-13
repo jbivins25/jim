@@ -248,9 +248,11 @@ unsigned __stdcall Worker(void* lpParam) {
 	char line[8192];
 	size_t lineLen = 0;
 	DWORD bytesRead;
+	char e = 'r';
+	ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL);
 
 	do {
-		while (ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL) && bytesRead > 0) {
+		while (bytesRead > 0) {
 			for (DWORD i = 0; i < bytesRead; i++) {
 				char c = buf[i];
 				if (c == '\r') continue;
@@ -271,19 +273,19 @@ unsigned __stdcall Worker(void* lpParam) {
 						redrawLine[i] |= REDRAW_WIN;
 					}
 					THREAD_UNLOCK(T.redrawLock);
-					char e = 'r';
-					DWORD bytesWritten;
 					THREAD_LOCK(T.eventPipeLock);
-					WriteFile(eWritePipe, &e, 1, &bytesWritten, NULL);
+					WriteFile(eWritePipe, &e, 1, NULL, NULL);
 					THREAD_UNLOCK(T.eventPipeLock);
+					SetEvent(hEvents[1]);
 				}
 				else {
 					if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
 					else { if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow(); lineLen = 0; }
 				}
 			}
+			ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL);
 		}
-	} while (WaitForSingleObject(pi.hProcess,0) != WAIT_OBJECT_0);
+	} while ((ReadFile(hRead, buf, sizeof(buf), &bytesRead, NULL) && bytesRead > 0) || WaitForSingleObject(pi.hProcess,0) != WAIT_OBJECT_0);
 
 	if (lineLen) windowAddRow(line, E.win.numrows, (int)lineLen);
 
@@ -299,6 +301,11 @@ unsigned __stdcall Worker(void* lpParam) {
 		redrawLine[i] |= REDRAW_WIN;
 	}
 	THREAD_UNLOCK(T.redrawLock);
+
+	THREAD_LOCK(T.eventPipeLock);
+	WriteFile(eWritePipe, &e, 1, NULL, NULL);
+	THREAD_UNLOCK(T.eventPipeLock);
+	SetEvent(hEvents[1]);
 
 	CloseHandle(hRead);
 

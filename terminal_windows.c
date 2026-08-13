@@ -118,7 +118,7 @@ int editorReadEvent() {
 	return 0;
 }
 
-char terminalWaitEvent() {
+char terminalWaitEvent() {	
 	DWORD eventWait = WaitForMultipleObjects(2, hEvents, FALSE, INFINITE);
 
 	switch (eventWait) {
@@ -126,6 +126,7 @@ char terminalWaitEvent() {
 			return EVENT_INPUT;
 
 		case WAIT_OBJECT_0 + 1:
+			ResetEvent(hEvents[1]);
 			return EVENT_QUEUE;
 	}
 	die("no such event");
