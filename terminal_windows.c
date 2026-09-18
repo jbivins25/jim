@@ -26,6 +26,7 @@ void enableRawMode() {
 	GetConsoleMode(hin, &E.orig_termios);
 	atexit(disableRawMode);
 	DWORD raw = E.orig_termios & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT);
+	raw |= ENABLE_WINDOW_INPUT;
 	SetConsoleMode(hin, raw);
 	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
 	DWORD outmode;
@@ -34,14 +35,36 @@ void enableRawMode() {
 }
 
 int editorReadKey() {
-	if (!_kbhit()) {
-		DWORD numRead;
-		INPUT_RECORD irWin[1];
-		if (ReadConsoleInput(GetStdHandle(STD_INPUT_HANDLE), irWin, 1, &numRead) && irWin[0].EventType == WINDOW_BUFFER_SIZE_EVENT) {
+	HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD numEvents = 0;
+
+	if (GetNumberOfConsoleInputEvents(hin, &numEvents) && numEvents > 0) {
+		INPUT_RECORD ir;
+		DWORD numRead = 0;
+
+		if (PeekConsoleInput(hin, &ir, 1, &numRead) && numRead > 0 && ir.EventType == WINDOW_BUFFER_SIZE_EVENT) {
+			ReadConsoleInput(hin, &ir, 1, &numRead);
+
+			INPUT_RECORD nextIr;
+			DWORD nextRead = 0;
+
+			//while (PeekConsoleInput(hin, &nextIr, 1, &nextRead) && nextRead > 0 && nextIr.EventType == WINDOW_BUFFER_SIZE_EVENT) {}
+
 			if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+			int newRows, newCols;
+
+			do {
+				newRows = E.screenrows;
+				newCols = E.screencols;
+
+				Sleep(1);
+
+				if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
+			} while (E.screenrows != newRows || E.screencols != newCols);
+
 			E.screenrows -= 2;
 			if (E.win.active) {
-				E.win.screencols = E.screencols/E.win.divider;
+				E.win.screencols = E.screencols / E.win.divider;
 				if (E.win.screencols < E.win.minCols) {
 					clearWindow();
 				}
@@ -54,8 +77,17 @@ int editorReadKey() {
 			redrawWholeScreen = 1;
 			THREAD_UNLOCK(T.redrawLock);
 		}
+
+		if (ir.EventType != KEY_EVENT || !ir.Event.KeyEvent.bKeyDown) {
+			ReadConsoleInput(hin, &ir, 1, &numRead);
+			return -1;
+		}
+	}
+
+	if (!_kbhit()) {
 		return -1;
 	}
+
 	int c = _getch();
 
 	if (c == 0 || c == 224) {
