@@ -207,7 +207,7 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 		editorRefreshScreen();
 
 		int e = terminalWaitEvent();
-		int c;
+		int c = 0;
 		
 		if (e & EVENT_INPUT) {
 			c = editorReadKey();

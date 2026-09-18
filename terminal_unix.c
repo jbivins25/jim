@@ -229,11 +229,11 @@ void win_sighandler(int sig) {
 		E.screenrows -= 2;
 		if (E.win.active) {
 			E.win.screencols = E.screencols/E.win.divider;
+			E.screencols -= E.win.screencols;
 			if (E.win.screencols < E.win.minCols) {
 				clearWindow();
 			}
 			else {
-				E.screencols -= E.win.screencols;
 				E.win.screenrows = E.screenrows;
 			}
 		}
