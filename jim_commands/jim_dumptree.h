@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "../data.h"
-#include "../jimio.h"
+#include "data.h"
+#include "jimio.h"
 
 int jim_dumptree(const int argc, const char* args[]) {
 	(void)argc;
 	(void)args;
 	if (E.win.active == 1) clearWindow();
-	windowSetup(1, 10, 2, NULL, strdup("Tree Dump"));
+	windowSetup(WINDOW_RIGHT, 10, 2, NULL, strdup("Tree Dump"));
 	urBlock* temp = E.tree.root;
 	char buf[80] = {0};
 	int length = 0;

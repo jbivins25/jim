@@ -23,7 +23,7 @@ TARGET_DIR := $(HOME)/bin
 SETUP_DIR := $(HOME)/.jim
 endif
 
-CFLAGS := -ggdb -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes
+CFLAGS := -ggdb -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes -I. -MMD -MP
 LDFLAGS :=
 ifeq ($(OS),Windows_NT)
 LDFLAGS += -static
@@ -31,7 +31,7 @@ endif
 
 SANITIZE :=
 ifneq ($(OS),Windows_NT)
-SANITIZE := -fsanitize=address
+SANITIZE := -fsanitize=address,undefined
 endif
 
 SRCS := \
@@ -66,7 +66,7 @@ debug: $(TARGET)
 # Release
 ###########################################################################
 
-release: CFLAGS := -O2 -std=c99 -Wall -Wextra -Wpedantic -Wno-strict-prototypes
+release: CFLAGS += -O2 
 release: setup_env $(RELEASE_DIR)/$(TARGET)
 
 ifeq ($(OS),Windows_NT)
@@ -110,10 +110,10 @@ $(RELEASE_DIR)/$(TARGET): $(RELEASE_OBJS)
 ###########################################################################
 
 $(DEBUG_DIR)/%.o: %.c | $(DEBUG_DIR)
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(RELEASE_DIR)/%.o: %.c | $(RELEASE_DIR)
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 ###########################################################################
 # Directories

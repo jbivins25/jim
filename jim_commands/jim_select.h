@@ -1,7 +1,7 @@
 #ifndef JIM_SELECT
 #define JIM_SELECT
-#include "../data.h"
-#include "../editor.h"
+#include "data.h"
+#include "editor.h"
 #include <string.h>
 #include <stdlib.h>
 

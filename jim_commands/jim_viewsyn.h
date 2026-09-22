@@ -31,6 +31,10 @@ void viewsynProcessKey(int c) {
 			E.mode = NORMAL;
 			break;
 
+		case '\r':
+			editorCommand();
+			break;
+
 		case ARROW_LEFT:
 		case ARROW_RIGHT:
 		case ARROW_UP:
@@ -48,7 +52,7 @@ int jim_viewsyn(const int argc, const char* args[]) {
 	(void)args;
 	if (E.syn.filetype == NULL) return -101;
 	char* name = "Syntax Viewer";
-	windowSetup(1, 10, 2, viewsynProcessKey, strdup(name));
+	windowSetup(WINDOW_RIGHT, 10, 2, viewsynProcessKey, strdup(name));
 	char* temp1 = "Keywords:";
 	windowAddRow(temp1, E.win.numrows, strlen(temp1));
 	for (int i = 0; i < E.syn.keywordCount; i++) {

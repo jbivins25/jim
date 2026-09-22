@@ -74,6 +74,7 @@ void initEditor() {
 	if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 	E.screenrows -= 2;
 	memset(&E.win,0,sizeof(windowConfig));
+	E.win.slot = -1;
 	memset(&E.syn,0,sizeof(editorSyntax));
 	initTree(&E.tree);
 	E.urType = NULL_UR;
@@ -86,7 +87,7 @@ void initEditor() {
 	E.sticky = 0;
 	E.keypressCallback = NULL;
 	#ifndef _WIN32
-	if (pipe(eventPipe) == -1) die("Pipe");
+	if (pipe(eventPipe) == -1) die("Pipe creation failed");
 	#else
 	SECURITY_ATTRIBUTES saAttr;
 	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);

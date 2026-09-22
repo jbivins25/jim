@@ -16,11 +16,24 @@
 #define SYN_PATH "%s/.jim/jim_%s.syn"
 #endif
 
-void windowSetup(char location, int minCols, int divider, void (*winHandler)(int c), char* header) {
+#define LOCATION_FLAG		0x1 // 0b00000001
+#define THREAD_OWNED_FLAG	0x2 // 0b00000010 A thread owned window needs to be properly marked to avoid window state corruption
+
+void windowSetup(unsigned char flags, int minCols, int divider, void (*winHandler)(int c), char* header) {
+	static unsigned int idTag = 1;
 	if ((E.screencols+E.win.screencols)/divider < minCols) return;
+	if (E.win.threadOwned) {
+		if (E.win.slot < 0 || E.win.slot >= MAX_THREADS) return; //No windows allowed due to state corruption
+		THREAD_LOCK(T.threadLock);
+		if (T.slot[E.win.slot].windowId == E.win.uniqueId) {
+			T.slot[E.win.slot].writeEnabled = 0;
+		}
+		THREAD_UNLOCK(T.threadLock);
+	}
 	clearWindow();
 	E.win.active = 1;
-	E.win.location = location;
+	E.win.location = flags & LOCATION_FLAG;
+	E.win.threadOwned = flags & THREAD_OWNED_FLAG;
 	E.win.minCols = minCols;
 	if ( divider < 2 ) E.win.divider = 2;
 	else E.win.divider = divider;
@@ -32,9 +45,9 @@ void windowSetup(char location, int minCols, int divider, void (*winHandler)(int
 	E.win.row = NULL;
 	E.win.numrows = 0;
 	E.win.header = header;
-	THREAD_LOCK(T.redrawLock);
-	redrawWholeScreen = 1;
-	THREAD_UNLOCK(T.redrawLock);
+	E.win.uniqueId = idTag++;
+	E.win.slot = -1;
+	if (idTag == 0) idTag++;
 	if (E.win.handler) E.mode = WINDOW;
 }
 
@@ -45,6 +58,7 @@ void clearWindow() {
 	free(E.win.header);
 	freeSyntax(&E.win.syn);
 	memset(&E.win, 0, sizeof(windowConfig));
+	E.win.slot = -1;
 	THREAD_LOCK(T.redrawLock);
 	redrawWholeScreen = 1;
 	THREAD_UNLOCK(T.redrawLock);
@@ -68,6 +82,7 @@ void drawWindow(struct abuf* ab, int y) {
 		inv_bg_len = snprintf(inv_bg, sizeof(inv_bg), "\x1b[%dm", INV_BG);
 		inv_fg_len = snprintf(inv_fg, sizeof(inv_bg), "\x1b[%dm", INV_FG);
 	}
+	THREAD_LOCK(T.windowThreadLock);
 	if (E.win.location == 1) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols+1);
 		abAppend(ab, buf, strlen(buf));
@@ -130,13 +145,18 @@ void drawWindow(struct abuf* ab, int y) {
 		abAppend(ab,def_fg, def_fg_len);		
 	}
 	else abAppend(ab, "\x1b[K", 3);
+	THREAD_UNLOCK(T.windowThreadLock);
 }
 
 int windowAddRow(char* text, int row, size_t len) {
 	if (!E.win.active) return -1;
 	if (row < 0 || row > E.win.numrows || text == NULL) return -1;
+	THREAD_LOCK(T.windowThreadLock);
 	E.win.row = realloc(E.win.row, sizeof(erow) * (E.win.numrows + 1));
-	if (E.win.row == NULL) return -1;
+	if (E.win.row == NULL) {
+		THREAD_UNLOCK(T.windowThreadLock);
+		return -1;
+	}
 	memmove(&E.win.row[row+1], &E.win.row[row], sizeof(erow) * (E.win.numrows - row));
 
 	E.win.row[row].size = len;
@@ -150,18 +170,22 @@ int windowAddRow(char* text, int row, size_t len) {
 	E.win.row[row].hl_open_string = 0;
 	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
 	E.win.numrows++;
+	THREAD_UNLOCK(T.windowThreadLock);
 	return 0;
 }
 
 void windowDelRow(int row) {
 	if (row < 0 || row >= E.win.numrows) return;
+	THREAD_LOCK(T.windowThreadLock);
 	editorFreeRow(&E.win.row[row]);
-	memmove(&E.win.row[row], &E.row[row + 1], sizeof(erow)*(E.win.numrows-row-1));
+	memmove(&E.win.row[row], &E.win.row[row + 1], sizeof(erow)*(E.win.numrows-row-1));
 	E.win.numrows--;
+	THREAD_UNLOCK(T.windowThreadLock);
 }
 
 void windowSetRow(char* text, int row, size_t len) {
 	if (row < 0 || row >= E.win.numrows) return;
+	THREAD_LOCK(T.windowThreadLock);
 	E.win.row[row].size = len;
 	free(E.win.row[row].chars);
 	E.win.row[row].chars = text;
@@ -169,6 +193,7 @@ void windowSetRow(char* text, int row, size_t len) {
 	E.win.row[row].rsize = 0;
 	E.win.row[row].render = NULL;
 	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
+	THREAD_UNLOCK(T.windowThreadLock);
 }
 
 int maxLineSize() {
@@ -183,6 +208,7 @@ void windowPageScroll(int c) {
 	int init_x, init_y;
 	init_x = E.win.xOffset;
 	init_y = E.win.yOffset;
+	THREAD_LOCK(T.windowThreadLock);
 	switch(c) {
 		case ARROW_UP:
 			if (E.win.yOffset > 0) E.win.yOffset--;
@@ -202,6 +228,7 @@ void windowPageScroll(int c) {
 		default:
 			break;
 	}
+	THREAD_UNLOCK(T.windowThreadLock);
 	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) {
 		THREAD_LOCK(T.redrawLock);
 		for (int i = 0; i < E.win.screenrows; i++) {
@@ -212,8 +239,10 @@ void windowPageScroll(int c) {
 }
 
 void windowClearRows() {
+	THREAD_LOCK(T.windowThreadLock);
 	for ( int i = 0; i < E.win.numrows; i++ ) editorFreeRow(&E.win.row[i]);
 	free(E.win.row);
 	E.win.row = NULL;
 	E.win.numrows = 0;
+	THREAD_UNLOCK(T.windowThreadLock);
 }

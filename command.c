@@ -21,6 +21,9 @@ void editorCommandCallback(char* query, int key) {
 		if (query[0] == '!') com_ind = 0;
 		if (com_ind < 0) {
 			free(args);
+			THREAD_LOCK(T.setMessageLock);
+			editorSetStatusMessage("Error: no such command");
+			THREAD_UNLOCK(T.setMessageLock);
 			return;
 		}
 		int argc = 0;

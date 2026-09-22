@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../compat.h"
-#include "../data.h"
-#include "../window.h"
-#include "../jimio.h"
-#include "../syntax.h"
+#include "compat.h"
+#include "data.h"
+#include "window.h"
+#include "jimio.h"
+#include "syntax.h"
 
 void catProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
@@ -32,6 +32,10 @@ void catProcessKey(int c) {
 			E.mode = NORMAL;
 			break;
 
+		case '\r':
+			editorCommand();
+			break;
+
 		case ARROW_LEFT:
 		case ARROW_RIGHT:
 		case ARROW_UP:
@@ -48,7 +52,7 @@ int jim_cat(const int argc, const char* args[]) {
 	if ( argc < 1 ) return -1;
 	FILE* fp = fopen(args[0], "r");
 	if (!fp) return -1;
-	windowSetup(1, 10, 2, catProcessKey, strdup(args[0]));
+	windowSetup(WINDOW_RIGHT, 10, 2, catProcessKey, strdup(args[0]));
 	loadSyntax(args[0], &E.win.syn);
 	char* line = NULL;
 	size_t linecap = 0;

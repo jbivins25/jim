@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../compat.h"
+#include "compat.h"
 #ifndef _WIN32
 #include <sys/wait.h>
 #endif
-#include "../data.h"
-#include "../window.h"
-#include "../jimio.h"
-#include "../terminal.h"
-#include "../command.h"
+#include "data.h"
+#include "window.h"
+#include "jimio.h"
+#include "terminal.h"
+#include "command.h"
 
 void shellProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
@@ -53,16 +53,13 @@ void shellProcessKey(int c) {
 	quit_times = JIM_QUIT_TIMES;
 }
 
-typedef struct {
-	int argc;
-	char** args;
-} ThreadArgs;
-
 #ifndef _WIN32
 void Worker(void* param) {
 	ThreadArgs* t = (ThreadArgs*)param;
 	int argc = t->argc;
 	char** args = t->args;
+	int id = t->id;
+	free(t);
 
 	if ( argc < 1 ) {
 		THREAD_LOCK(T.setMessageLock);
@@ -116,7 +113,11 @@ void Worker(void* param) {
 	do {
 		while (linelen > 0) {
 			while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r')) linelen--;
+			
+			THREAD_LOCK(T.threadLock);
+			if (!T.slot[id].writeEnabled) { THREAD_UNLOCK(T.threadLock); linelen = 0; continue; }
 			if(windowAddRow(line, E.win.numrows, linelen) < 0) clearWindow();
+			THREAD_UNLOCK(T.threadLock);
 		
 			if (E.win.numrows > E.win.screenrows - 1) {
 				E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
@@ -199,6 +200,8 @@ unsigned __stdcall Worker(void* lpParam) {
 	ThreadArgs* t = (ThreadArgs*)lpParam;
 	int argc = t->argc;
 	char** args = t->args;
+	int id = t->id;
+	free(t);
 
 	if (argc < 1) {
 		THREAD_LOCK(T.setMessageLock);
@@ -265,7 +268,14 @@ unsigned __stdcall Worker(void* lpParam) {
 			char c = buf[i];
 			if (c == '\r') continue;
 			if (c == '\n') {
+				THREAD_LOCK(T.threadLock);
+				if (!T.slot[id].writeEnabled) {
+					lineLen = 0;
+					THREAD_UNLOCK(T.threadLock);
+					continue;
+				}
 				if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
+				THREAD_UNLOCK(T.threadLock);
 				lineLen = 0;
 				if (E.win.numrows > E.win.screenrows - 1) {
 					E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
@@ -287,7 +297,14 @@ unsigned __stdcall Worker(void* lpParam) {
 			else {
 				if (lineLen < sizeof(line) - 1) line[lineLen++] = c;
 				else { 
+					THREAD_LOCK(T.threadLock);
+					if (!T.slot[id].writeEnabled) {
+						lineLen = 0;
+						THREAD_UNLOCK(T.threadLock);
+						continue;
+					}
 					if (windowAddRow(line, E.win.numrows, (int)lineLen) < 0) clearWindow();
+					THREAD_UNLOCK(T.threadLock);
 					lineLen = 0; 
 					if (E.win.numrows > E.win.screenrows - 1) {
 						E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
@@ -314,26 +331,31 @@ unsigned __stdcall Worker(void* lpParam) {
 	}
 
 	if (lineLen) {
-		windowAddRow(line, E.win.numrows, (int)lineLen);
+		THREAD_LOCK(T.threadLock);
+		if (T.slot[id].writeEnabled) {
+			windowAddRow(line, E.win.numrows, (int)lineLen);
+			THREAD_UNLOCK(T.threadLock);
 
-		if (E.win.numrows > E.win.screenrows - 1) {
-			E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
-		}
-		else {
-			E.win.yOffset = 0;
-		}
-		E.win.xOffset = 0;
+			if (E.win.numrows > E.win.screenrows - 1) {
+				E.win.yOffset = E.win.numrows - E.win.screenrows + 1;
+			}
+			else {
+				E.win.yOffset = 0;
+			}
+			E.win.xOffset = 0;
+		
+			THREAD_LOCK(T.redrawLock);
+			for (int i = 0; i < E.win.screenrows; i++) {
+				redrawLine[i] |= REDRAW_WIN;
+			}
+			THREAD_UNLOCK(T.redrawLock);
 	
-		THREAD_LOCK(T.redrawLock);
-		for (int i = 0; i < E.win.screenrows; i++) {
-			redrawLine[i] |= REDRAW_WIN;
+			THREAD_LOCK(T.eventPipeLock);
+			WriteFile(eWritePipe, &e, 1, NULL, NULL);
+			THREAD_UNLOCK(T.eventPipeLock);
+			SetEvent(hEvents[1]);
 		}
-		THREAD_UNLOCK(T.redrawLock);
-	
-		THREAD_LOCK(T.eventPipeLock);
-		WriteFile(eWritePipe, &e, 1, NULL, NULL);
-		THREAD_UNLOCK(T.eventPipeLock);
-		SetEvent(hEvents[1]);
+		else THREAD_UNLOCK(T.threadLock);
 	}
 	CloseHandle(hRead);
 
@@ -400,7 +422,7 @@ int jim_shell(const int argc, const char* args[]) {
 	if (!E.win.active || strcmp("Terminal", E.win.header)) { 
 		char* header = malloc(9);
 		strcpy(header, "Terminal");
-		windowSetup(1, 10, 2, shellProcessKey, header);
+		windowSetup((THREAD_OWNED | WINDOW_RIGHT), 10, 2, shellProcessKey, header);
 	}
 	
 	int commandLen = 6;
@@ -414,8 +436,8 @@ int jim_shell(const int argc, const char* args[]) {
 
 		command[offset++] = (i < argc - 1) ? ' ' : '\0';
 	}
-	windowAddRow(command, E.win.numrows, commandLen);
-
+	windowAddRow(command, E.win.numrows, commandLen-1);
+	free(command);
 
 	char** argCopy = malloc((argc+1)*sizeof(char*));
 
@@ -429,7 +451,8 @@ int jim_shell(const int argc, const char* args[]) {
 	tArgs->argc = argc;
 	tArgs->args = argCopy;
 
-	editorThreadCreate(Worker, (void*)tArgs);
+	int slot = editorThreadCreate(Worker, (void*)tArgs);
+	editorThreadLinkWindow(slot);
 
 	return 0;
 }

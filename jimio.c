@@ -56,6 +56,7 @@ void editorDrawRows(struct abuf* ab) {
 	static int def_bg_len;
 	static char hl_bg[8];
 	static int hl_bg_len;
+	static const char space = ' ';
 	if (set) {
 		set = 0;
 		def_fg_len = snprintf(def_fg, sizeof(def_fg), "\x1b[%dm", DEF_FG);
@@ -107,6 +108,7 @@ void editorDrawRows(struct abuf* ab) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
 					}
+					if (len == 0) abAppend(ab, &space, 1);
 				}
 			
 				abAppend(ab,def_fg,def_fg_len); //Sets default text color
@@ -199,7 +201,7 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int)) {
 
 	size_t buflen = 0;
 	buf[0] = '\0';
-	if (E.win.active && !strcmp(E.win.header, "Terminal")) { buflen++; buf[0] = '!', buf[1] = '\0'; }
+	if (E.win.active && E.mode == WINDOW && !strcmp(E.win.header, "Terminal")) { buflen++; buf[0] = '!', buf[1] = '\0'; }
 	while(1) {
 		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage(prompt, buf);
@@ -414,6 +416,9 @@ void editorProcessKeypress(int c) {
 			E.selected[3] = E.row[E.numrows-1].size-1;
 			E.cx = E.row[E.numrows-1].size-1;
 			E.cy = E.numrows-1;
+			THREAD_LOCK(T.redrawLock);
+			redrawWholeScreen = 1;
+			THREAD_UNLOCK(T.redrawLock);
 			break;
 
 		case CTRL_KEY('y'):
@@ -451,7 +456,7 @@ void editorProcessKeypress(int c) {
 				E.keypressCallback = NULL;
 			}
 			else {
-				windowSetup(0, 20, 5, treeProcessKey, strdup("Tree"));
+				windowSetup(WINDOW_LEFT, 20, 5, treeProcessKey, strdup("Tree"));
 				E.keypressCallback = drawTree;
 				drawTree();
 				if (E.win.screencols < E.win.minCols) clearWindow();

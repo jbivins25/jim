@@ -100,8 +100,9 @@ typedef struct {
 } editorSyntax;
 
 typedef struct {
-	char active, location;
-	int minCols, screencols, screenrows;
+	char active, location, threadOwned;
+	int minCols, screencols, screenrows, slot;
+	unsigned int uniqueId;
 	int xOffset, yOffset;
 	winHandler handler;
 	erow* row;
@@ -188,8 +189,16 @@ enum threadState {
 };
 
 typedef struct {
+        int id;
+        int argc;
+        char** args;
+} ThreadArgs; //Default struct for thread arguments, does not need to be used, a custom implementation can be used, but int id must be the first member of the argument struct to avoid corruption and proper thread function
+
+typedef struct {
 	editor_thread_t handle;
 	int state;
+	int writeEnabled;
+	unsigned int windowId;
 
 	editorThreadFunc func;
 	void* arg;
@@ -209,6 +218,7 @@ typedef struct {
 int editorThreadCreate(editorThreadFunc func, void* arg);
 int editorDetachThread(editorThread* t);
 int editorJoinThread();
+void editorThreadLinkWindow(int slot);
 
 extern struct editorConfig E;
 extern editorThreads T;
