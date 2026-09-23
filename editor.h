@@ -6,6 +6,7 @@ void exitSelect();
 void editorHghlt(int c);
 void editorMoveLine();
 void editorPaste();
+void editorCopy();
 void editorDelSelect();
 void editorInsertChar(int c);
 void editorInsertNewline();

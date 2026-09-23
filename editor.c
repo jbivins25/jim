@@ -74,33 +74,8 @@ void selectMoveCursor(int key) {
 void editorHghlt(int c) {
 	static char hl_dir = LEFT;
 	switch (c) {
-        case CTRL_KEY('c'): {
-	    free(E.cpbuffer);
-	    size_t size = 0;
-	    for (int i = E.selected[0]+1; i < E.selected[1]; i++) {
-		size += E.row[i].size + 1;
-	    }
-	    if (E.selected[0] == E.selected[1]) size += E.selected[3] - E.selected[2] + 1;
-	    else {
-		size += E.row[E.selected[0]].size - E.selected[2] + 1;
-		size += E.selected[3] + 1;
-	    }
-	    size += 1;
-	    E.cpbuffer = malloc(size);
-	    unsigned int ind = 0;
-	    for (int i = E.selected[0]; i <=E.selected[1]; i++) {
-		int start = (i == E.selected[0]) ? E.selected[2] : 0;
-		int end = (i == E.selected[1]) ? E.selected[3]+1 : E.row[i].size;
-		for ( int j = start; j < end; j++ ) {
-			E.cpbuffer[ind++] = E.row[i].chars[j];
-		}
-		if (i < E.selected[1]) E.cpbuffer[ind++] = '\r';
-	    }
-	    E.cpbuffer[ind] = '\0';
-	    }
-	    THREAD_LOCK(T.setMessageLock);
-	    editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
-	    THREAD_UNLOCK(T.setMessageLock);
+        case CTRL_KEY('c'):
+	    editorCopy();
             break;
 
 	case CTRL_KEY('v'):
@@ -232,8 +207,8 @@ void editorPaste() {
 			editorInsertNewline();
 			size++;
 		}
-		editorRowInsertChar(&E.row[E.cy], E.cx, E.cpbuffer[size++]);
-		E.cx++;
+		if (E.cpbuffer[size] != '\0') editorInsertChar(E.cpbuffer[size++]);
+		else break;
 	}	
 	int start = prev_cy - E.rowoff;
 	if (start < 0) start = 0;
@@ -243,6 +218,35 @@ void editorPaste() {
 		redrawLine[i] |= REDRAW_DEF;
 	}
 	THREAD_UNLOCK(T.redrawLock);
+}
+
+void editorCopy() {
+	if (E.mode != SELECT) return;
+	free(E.cpbuffer);
+	size_t size = 0;
+	for (int i = E.selected[0]+1; i < E.selected[1]; i++) {
+		size += E.row[i].size + 1;
+	}
+	if (E.selected[0] == E.selected[1]) size += E.selected[3] - E.selected[2] + 1;
+	else {
+		size += E.row[E.selected[0]].size - E.selected[2] + 1;
+		if (E.row[E.selected[1]].size > 0) size += E.selected[3] + 1;
+	}
+	size += 1;
+	E.cpbuffer = malloc(size);
+	unsigned int ind = 0;
+	for (int i = E.selected[0]; i <=E.selected[1]; i++) {
+		int start = (i == E.selected[0]) ? E.selected[2] : 0;
+		int end = (i == E.selected[1]) ? ((E.selected[3] == E.row[i].size) ? E.selected[3] : E.selected[3]+1) : E.row[i].size;
+		for ( int j = start; j < end; j++ ) {
+			E.cpbuffer[ind++] = E.row[i].chars[j];
+		}
+		if (i < E.selected[1]) E.cpbuffer[ind++] = '\r';
+	}
+	E.cpbuffer[ind] = '\0';
+	THREAD_LOCK(T.setMessageLock);
+	editorSetStatusMessage("Copied! Selected text: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]);
+	THREAD_UNLOCK(T.setMessageLock);
 }
 
 void editorDelSelect() {
@@ -412,11 +416,21 @@ int isSeparator(int c) {
 	return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[]{};:", c) != NULL;
 }
 
+int isHex(int c) {
+	return strchr("0123456789abcdefABCDEF", c) != NULL;
+}
+
+int isBin(int c) {
+	return c == '0' || c == '1';
+}
+
 void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 	int changed = 0;
 	int numrows = (mode == WINDOW) ? E.win.numrows : E.numrows;
 	int offset = (mode == WINDOW) ? E.win.yOffset : E.rowoff;
 	int screenrows = (mode == WINDOW) ? E.win.screenrows : E.screenrows;
+	int hexNum = 0;
+	int binNum = 0;
 	do {
 		if (changed) row++;
 		changed = 0;
@@ -490,7 +504,21 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			}
 	
 			if (syn->flags & HGHLT_NUM) {
-				if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || (c == 'f' && prev_hl == NUMBER)) {
+				if (hexNum) {
+					if (!isHex(c)) { hexNum = 0; prev_sep = 0; continue; } 
+					row->hl[i] = NUMBER;
+					prev_sep = 0;
+					continue;
+				}
+				if (binNum) {
+					if (!isBin(c)) { hexNum = 0; prev_sep = 0; continue; }
+					row->hl[i] = NUMBER;
+					prev_sep = 0;
+					continue;
+				}
+				if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || ((c == 'f' ||c == 'b' || c == 'x') && prev_hl == NUMBER) || (isHex(c) && hexNum)) {
+					if (c == 'x') hexNum = 1;
+					else if (c == 'b') binNum = 1; 
 					row->hl[i] = NUMBER;
 					prev_sep = 0;
 					continue;
@@ -522,7 +550,9 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 				}
 				if (found) continue;
 			}
-	
+
+			if (hexNum && !isHex(c)) hexNum = 0;
+			if (binNum && !(c == '0' || c == '1')) binNum = 0;
 			prev_sep = isSeparator(c);		
 		}
 		if ((row->hl_open_comment != in_comment && E.syn.flags & HGHLT_ML_CM) || (row->hl_open_string != in_string && E.syn.flags & HGHLT_ML_STRINGS)) {

@@ -6,6 +6,7 @@
 #include "jim_commands/jim_select.h"
 #include "jim_commands/jim_viewsyn.h"
 #include "jim_commands/jim_showthreads.h"
+#include "jim_commands/jim_dumptree.h"
 // =================================
 
 typedef int (*CommandFunc)(const int argc, const char* args[]); //By default, 0 will be interpretted as success and any negative values are errors which will be printed
@@ -24,7 +25,8 @@ commandEntry command_table[] = {
 	{"open",jim_open},
 	{"viewsyn",jim_viewsyn},
 	{"select",jim_select},
-	{"showthreads",jim_showthreads}
+	{"showthreads",jim_showthreads},
+	{"dumptree",jim_dumptree}
 };
 
 #define COM_TAB_SIZE (sizeof(command_table)/sizeof(commandEntry))
