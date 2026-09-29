@@ -198,7 +198,7 @@ void windowSetRow(char* text, int row, size_t len) {
 
 int maxLineSize() {
 	int max = 0;
-	for ( int i = E.win.yOffset; i < (E.win.numrows <= E.win.screenrows-1 ? E.win.numrows : E.win.screenrows-1 + E.win.yOffset); i++ ) {
+	for ( int i = E.win.yOffset; i < (E.win.numrows <= E.win.screenrows-1 + E.win.yOffset ? E.win.numrows : E.win.screenrows-1 + E.win.yOffset); i++ ) {
 		if (E.win.row[i].rsize > max) max = E.win.row[i].rsize;
 	}
 	return max;

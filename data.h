@@ -14,13 +14,15 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.9.3"
+#define JIM_VERSION "1.9.8"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
 #define UNDO_TIMEOUT 500
 #define STARTING_CAPACITY 16
 #define MAX_THREADS 4
+#define SHOW_LINE_NUM 1 //On start-up, can be toggled on/off
+#define SHOW_LINE_REL 1
 
 //====================================
 // Syntax Flags
@@ -141,8 +143,10 @@ struct editorConfig {
 	char* cpbuffer;
 	erow* row;
 	void (*keypressCallback)();
-	int dirty;
-	int mode;
+	char dirty;
+	char mode;
+	char linenum;
+	char relative;
 	char *filename;
 	char statusmsg[80];
 	time_t statusmsg_time;

@@ -57,6 +57,8 @@ void editorDrawRows(struct abuf* ab) {
 	static char hl_bg[8];
 	static int hl_bg_len;
 	static const char space = ' ';
+	static const char* linenumform = "\x1b[%dm%3d \x1b[%dm";
+	static char linenumbuf[32];
 	if (set) {
 		set = 0;
 		def_fg_len = snprintf(def_fg, sizeof(def_fg), "\x1b[%dm", DEF_FG);
@@ -70,7 +72,7 @@ void editorDrawRows(struct abuf* ab) {
 			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, ((!redrawWholeScreen || redrawLine[y] == REDRAW_DEF) && E.win.active && E.win.location == 0) ? E.win.screencols+1 : 0);
 			abAppend(ab, buf, strlen(buf));
 			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 0) ) drawWindow(ab, y);
-			if ( redrawWholeScreen || redrawLine[y] & REDRAW_DEF ) {
+			if ( redrawWholeScreen || redrawLine[y] & REDRAW_DEF) {
 				if (E.win.active && E.win.location == 1 && redrawLine[y] == 1) {
 					snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols);
 					abAppend(ab, buf, strlen(buf));
@@ -83,6 +85,15 @@ void editorDrawRows(struct abuf* ab) {
 					abAppend(ab, "~", 1);
 				}
 				else {
+					if (E.linenum) {
+						int len;
+						if (E.relative) {
+							int linenumber = (E.cy - filerow > 0) ? (E.cy - filerow) : (E.cy - filerow == 0) ? (filerow + 1) : (-1 * (E.cy - filerow));
+							len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
+						}
+						else len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG);
+						abAppend(ab, linenumbuf, len);
+					}
 					if (filerow > E.selected[0] && filerow < E.selected[1]) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
 					if (filerow == E.selected[1] && E.selected[0] != E.selected[1] && E.coloff <= editorRowCxToRx(&E.row[filerow],E.selected[3])) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 					int len = E.row[filerow].rsize - E.coloff;
@@ -103,7 +114,18 @@ void editorDrawRows(struct abuf* ab) {
 							abAppend(ab, buf, hlen);
 							current_color = color;
 						}
-						abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
+						if (iscntrl(E.row[filerow].render[E.coloff + j])) {
+							char sym = (E.row[filerow].render[E.coloff + j] <= 26) ? '@' + E.row[filerow].render[E.coloff + j] : '?';
+							abAppend(ab, "\x1b[7m", 4);
+							abAppend(ab, &sym, 1);
+							abAppend(ab, "\x1b[m", 3);
+							char buf[16];
+							int clen;
+							if (E.colorful == 0 || color == DEF_FG) clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+							else clen = snprintf(buf, sizeof(buf), "\x1b[38;5;%dm", color);
+							abAppend(ab, buf, clen);
+						}
+						else abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
 						if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
@@ -118,6 +140,13 @@ void editorDrawRows(struct abuf* ab) {
 			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 1) ) drawWindow(ab, y);
 			abAppend(ab, "\r\n", 2);
 			redrawLine[y] = 0;
+		}
+		else if (E.relative) {
+			int filerow = y + E.rowoff;
+			int linenumber = (E.cy - filerow > 0) ? (E.cy - filerow) : (E.cy - filerow == 0) ? (filerow + 1) : (-1 * (E.cy - filerow));
+			int len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
+			abAppend(ab, linenumbuf, len);
+			abAppend(ab, "\r\n", 2);
 		}
 	}
 	redrawWholeScreen = 0;
@@ -135,7 +164,7 @@ void editorDrawStatusBar(struct abuf *ab) {
 	abAppend(ab, buf, len);
 	char status[80], rstatus[80];
 	len = snprintf(status, sizeof(status), "%.20s - %d lines %s", E.filename ? E.filename : "[No name]", E.numrows, E.dirty ? "(modified)" : "");
-	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", statusMode[E.mode], E.cy + 1, E.numrows);
+	int rlen = snprintf(rstatus, sizeof(rstatus), "Mode: %s  %d/%d", statusMode[(int)E.mode], E.cy + 1, E.numrows);
 	if (len > E.screencols + E.win.screencols) len = E.screencols + E.win.screencols;
 	abAppend(ab, status, len);
 	while (len < E.screencols + E.win.screencols) {
@@ -179,7 +208,10 @@ void editorRefreshScreen() {
 	editorDrawMessageBar(&ab);
 	THREAD_UNLOCK(T.redrawLock);
 	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1 + (E.win.active && E.win.location == 0 ? E.win.screencols : 0) ); //Add one to deal with terminal cursor indexing
+	int lineoffset = 4;
+	int tempcy = E.cy + 1; //Since line numbers start from 1
+	while (tempcy > 999) { tempcy /= 10; lineoffset++; }
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff + lineoffset) + 1 + (E.win.active && E.win.location == 0 ? E.win.screencols : 0) ); //Add one to deal with terminal cursor indexing
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, "\x1b[?25h", 6); //View cursor
 

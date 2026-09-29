@@ -12,4 +12,5 @@
 #define INV_BG 107
 #define INV_FG 30
 #define HL_BG 100
+#define LINE_COL 90
 // =================================

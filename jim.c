@@ -67,6 +67,8 @@ void initEditor() {
 	}
 	E.dirty = 0;
 	E.mode = NORMAL;
+	E.linenum = SHOW_LINE_NUM;
+	E.relative = SHOW_LINE_REL;
 	E.cpbuffer = NULL;
 	E.filename = NULL;
 	E.statusmsg[0] = '\0';

@@ -8,6 +8,7 @@
 #include "window.h"
 #include "jimio.h"
 #include "syntax.h"
+#include "find.h"
 
 void catProcessKey(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
@@ -25,6 +26,10 @@ void catProcessKey(int c) {
 			write(STDOUT_FILENO, "\x1b[2J", 4); //Clear up screen on exit
 			write(STDOUT_FILENO, "\x1b[H", 3);
 			exit(0);
+			break;
+
+		case CTRL_KEY('f'): 
+			editorFind();
 			break;
 
 		case '\x1b':
