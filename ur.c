@@ -245,6 +245,7 @@ void treeProcessKey(int c) {
 		case '\x1b':
 			clearWindow();
 			E.mode = NORMAL;
+			E.keypressCallback = NULL;
 			break;
 
 		case ARROW_LEFT:

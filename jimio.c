@@ -71,9 +71,9 @@ void editorDrawRows(struct abuf* ab) {
 			abAppend(ab, def_bg, def_bg_len);
 			snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, ((!redrawWholeScreen || redrawLine[y] == REDRAW_DEF) && E.win.active && E.win.location == 0) ? E.win.screencols+1 : 0);
 			abAppend(ab, buf, strlen(buf));
-			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 0) ) drawWindow(ab, y);
+			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == WINDOW_LEFT) ) drawWindow(ab, y);
 			if ( redrawWholeScreen || redrawLine[y] & REDRAW_DEF) {
-				if (E.win.active && E.win.location == 1 && redrawLine[y] == 1) {
+				if (E.win.active && E.win.location == WINDOW_RIGHT && redrawLine[y] == 1) {
 					snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols);
 					abAppend(ab, buf, strlen(buf));
 					abAppend(ab, "\x1b[1K", 4);
@@ -137,14 +137,20 @@ void editorDrawRows(struct abuf* ab) {
 				abAppend(ab,def_bg,def_bg_len); //Sets default background color
 				if (!E.win.active || !(E.win.location == 1) || redrawLine[y] != 1) abAppend(ab, "\x1b[K", 3); //Erases part of the line to the right
 			}
-			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == 1) ) drawWindow(ab, y);
+			if ( (redrawWholeScreen || redrawLine[y] & REDRAW_WIN) && (E.win.active && E.win.location == WINDOW_RIGHT) ) drawWindow(ab, y);
 			abAppend(ab, "\r\n", 2);
 			redrawLine[y] = 0;
 		}
-		else if (E.relative) {
+		else if (E.linenum && E.relative) {
+			char buf[16];
+			int len;
+			if (E.win.active && E.win.location == WINDOW_LEFT) {
+				len = snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y + 1, E.win.screencols + 1);
+				abAppend(ab, buf, len);
+			}
 			int filerow = y + E.rowoff;
 			int linenumber = (E.cy - filerow > 0) ? (E.cy - filerow) : (E.cy - filerow == 0) ? (filerow + 1) : (-1 * (E.cy - filerow));
-			int len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
+			len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
 			abAppend(ab, linenumbuf, len);
 			abAppend(ab, "\r\n", 2);
 		}
@@ -208,9 +214,12 @@ void editorRefreshScreen() {
 	editorDrawMessageBar(&ab);
 	THREAD_UNLOCK(T.redrawLock);
 	char buf[32];
-	int lineoffset = 4;
-	int tempcy = E.cy + 1; //Since line numbers start from 1
-	while (tempcy > 999) { tempcy /= 10; lineoffset++; }
+	int lineoffset = 0;
+	if (E.linenum) {
+		lineoffset = 4;
+		int tempcy = E.cy + 1; //Since line numbers start from 1
+		while (tempcy > 999) { tempcy /= 10; lineoffset++; }
+	}
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff + lineoffset) + 1 + (E.win.active && E.win.location == 0 ? E.win.screencols : 0) ); //Add one to deal with terminal cursor indexing
 	abAppend(&ab, buf, strlen(buf));
 	abAppend(&ab, "\x1b[?25h", 6); //View cursor
@@ -482,7 +491,6 @@ void editorProcessKeypress(int c) {
 			break;
 
 		case CTRL_KEY('t'):
-			//break;
 			if ( E.win.active && !strcmp(E.win.header, "Tree")) {
 				clearWindow();
 				E.keypressCallback = NULL;

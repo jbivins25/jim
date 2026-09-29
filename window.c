@@ -18,6 +18,7 @@
 
 #define LOCATION_FLAG		0x1 // 0b00000001
 #define THREAD_OWNED_FLAG	0x2 // 0b00000010 A thread owned window needs to be properly marked to avoid window state corruption
+#define SET_CALLBACK_FLAG	0x4 // 0b00000100
 
 void windowSetup(unsigned char flags, int minCols, int divider, void (*winHandler)(int c), char* header) {
 	static unsigned int idTag = 1;
@@ -34,6 +35,7 @@ void windowSetup(unsigned char flags, int minCols, int divider, void (*winHandle
 	E.win.active = 1;
 	E.win.location = flags & LOCATION_FLAG;
 	E.win.threadOwned = flags & THREAD_OWNED_FLAG;
+	E.win.setCallback = flags & SET_CALLBACK_FLAG;
 	E.win.minCols = minCols;
 	if ( divider < 2 ) E.win.divider = 2;
 	else E.win.divider = divider;
@@ -53,6 +55,7 @@ void windowSetup(unsigned char flags, int minCols, int divider, void (*winHandle
 
 void clearWindow() {
 	E.screencols += E.win.screencols;
+	if (E.win.setCallback) E.keypressCallback = NULL;
 	for ( int i = 0; i < E.win.numrows; i++ ) editorFreeRow(&E.win.row[i]);
 	free(E.win.row);
 	free(E.win.header);

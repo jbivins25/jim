@@ -21,8 +21,8 @@
 #define UNDO_TIMEOUT 500
 #define STARTING_CAPACITY 16
 #define MAX_THREADS 4
-#define SHOW_LINE_NUM 1 //On start-up, can be toggled on/off
-#define SHOW_LINE_REL 1
+#define SHOW_LINE_NUM 0 //On start-up, can be toggled on/off
+#define SHOW_LINE_REL 0
 
 //====================================
 // Syntax Flags
@@ -102,7 +102,7 @@ typedef struct {
 } editorSyntax;
 
 typedef struct {
-	char active, location, threadOwned;
+	char active, location, threadOwned, setCallback; 
 	int minCols, screencols, screenrows, slot;
 	unsigned int uniqueId;
 	int xOffset, yOffset;
