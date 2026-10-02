@@ -45,11 +45,7 @@ void editorFindCallback(char* query, int key) {
 			else {
 				E.win.yOffset = current;
 				E.win.xOffset = editorRowRxToCx(row, match - row->render);
-				THREAD_LOCK(T.redrawLock);
-				for (int j = 0; j < numrows; j++) {
-					redrawLine[j] |= REDRAW_WIN;
-				}
-				THREAD_UNLOCK(T.redrawLock);
+				markRedraw(0, numrows, REDRAW_WIN);
 			}
 			break;
 		}

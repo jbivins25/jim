@@ -53,21 +53,6 @@ int editorThreadCreate(editorThreadFunc func, void* arg) {
 	return slot;
 }
 
-int editorDetachThread(editorThread* t) {
-	THREAD_LOCK(T.threadLock);
-
-	#ifndef _WIN32
-	pthread_detach(t->handle);
-	#else
-	CloseHandle(t->handle);
-	#endif
-
-	t->state = THREAD_UNUSED;
-
-	THREAD_UNLOCK(T.threadLock);
-	return 0;
-}
-
 int editorJoinThread() {
 	THREAD_LOCK(T.threadLock);
 

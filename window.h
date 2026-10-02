@@ -5,6 +5,7 @@
 #define WINDOW_LEFT	(0 << 0)
 #define WINDOW_RIGHT	(1 << 0)
 #define THREAD_OWNED	(1 << 1)
+#define SET_CALLBACK	(1 << 2)
 
 void windowSetup(unsigned char flags, int minCols, int divider, void (*winHandler)(int c), char* header);
 void clearWindow();

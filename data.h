@@ -14,7 +14,7 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.9.8"
+#define JIM_VERSION "1.9.9"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
@@ -39,6 +39,11 @@
 #define REDRAW_WIN (1 << 1)
 //====================================
 
+#define SELECTED_STARTY	0
+#define SELECTED_ENDY	1
+#define SELECTED_STARTX	2
+#define SELECTED_ENDX	3
+
 enum editorKey {
 	BACKSPACE = 127,
 	ARROW_LEFT = 1000,
@@ -49,7 +54,8 @@ enum editorKey {
 	HOME_KEY,
 	END_KEY,
 	PAGE_UP,
-	PAGE_DOWN
+	PAGE_DOWN,
+	DEFAULT_KEY = 9999 //passed as a default value to fall through or set static variables
 };
 
 enum styleType {
@@ -220,7 +226,6 @@ typedef struct {
 } editorThreads;
 
 int editorThreadCreate(editorThreadFunc func, void* arg);
-int editorDetachThread(editorThread* t);
 int editorJoinThread();
 void editorThreadLinkWindow(int slot);
 

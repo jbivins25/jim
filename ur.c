@@ -86,11 +86,7 @@ void undo() {
 			else editorInsertNewline();
 		}
 	}
-	THREAD_LOCK(T.redrawLock);
-	for ( int i =  0; i < E.screenrows; i++ ) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(0, E.screenrows, REDRAW_DEF);
 	E.tree.curr = E.tree.curr->parent;
 	E.urMode = 1;
 }
@@ -126,11 +122,7 @@ void redo() {
 			else editorInsertNewline();
 		}
 	}
-	THREAD_LOCK(T.redrawLock);
-	for (int i = 0; i < E.screenrows; i++) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(0, E.screenrows, REDRAW_DEF);
 	E.urMode = 1;
 }
 
@@ -213,11 +205,7 @@ void drawTree() {
 	int redraw;
 	if (2*depth > E.win.screenrows) redraw = E.win.screenrows;
 	else redraw = 2*depth;
-	THREAD_LOCK(T.redrawLock);
-	for ( int i = 0; i < redraw; i++ ) {
-		redrawLine[i] |= REDRAW_WIN;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(0, redraw, REDRAW_WIN);
 	E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
 }
 

@@ -4,37 +4,38 @@
 #include "jimio.h"
 #include "ur.h"
 #include "palette.h"
+#include "compat.h"
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 
-enum {
-	LEFT = 0,
-	RIGHT
-};
-
 void exitSelect() {
-	int start = (E.selected[0] - E.rowoff < 0) ? 0 : E.selected[0] - E.rowoff;
-	int end = (E.selected[1] - E.rowoff + 1 < E.screenrows) ? E.selected[1] - E.rowoff + 1 : E.screenrows;
-	THREAD_LOCK(T.redrawLock);
-	for (int i = start; i < end; i++) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
-	E.selected[0] = E.selected[1] = E.selected[2] = E.selected[3] = -1;
+	int start = (E.selected[SELECTED_STARTY] - E.rowoff < 0) ? 0 : E.selected[SELECTED_STARTY] - E.rowoff;
+	int end = (E.selected[SELECTED_ENDY] - E.rowoff + 1 < E.screenrows) ? E.selected[SELECTED_ENDY] - E.rowoff + 1 : E.screenrows;
+	markRedraw(start, end, REDRAW_DEF);
+	E.selected[SELECTED_STARTY] = E.selected[SELECTED_ENDY] = E.selected[SELECTED_STARTX] = E.selected[SELECTED_ENDX] = -1;
 	E.mode = NORMAL;	
 }
 
 void selectMoveCursor(int key) {
-	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+	static int anch_y = 0, anch_x = 0;
+	if (key == DEFAULT_KEY) { anch_y = 0; anch_x = 0; return; }
+	int selYS = E.selected[SELECTED_STARTY], selYE = E.selected[SELECTED_ENDY], selXS = E.selected[SELECTED_STARTX], selXE = E.selected[SELECTED_ENDX];
+	if (selYS == selYE && selXS == selXE) { //Guarantees the static anchors get set each time select is enabled without ctrl-a
+		anch_y = selYS;
+		anch_x = selXS;
+	}
+	erow *row = &E.row[E.cy];
+	int startY = E.cy;
 	switch (key) {
 		case ARROW_LEFT:
-			if (E.cx != 0) {
+			if (E.cx > 0) {
 				E.cx--;
 			}
 			else if (E.cy > 0) {
 				E.cy--;
-				E.cx = E.row[E.cy].size-1;
+				E.cx = E.row[E.cy].size == 0 ? 0 : E.row[E.cy].size-1;
+				row = &E.row[E.cy];
 			}
 			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
@@ -42,37 +43,58 @@ void selectMoveCursor(int key) {
 			if (row && E.cx < row->size-1) {
 				E.cx++;
 			}
-			else if (row) {
+			else if (row && E.cy < E.numrows-1) {
 				E.cy++;
 				E.cx = 0;
+				row = &E.row[E.cy];
 			}
 			E.sticky = editorRowCxToRx(row,E.cx);
 			break;
 		case ARROW_UP:
-			if (E.cy != 0) {
+			if (E.cy > 0) {
 				E.cy--;
+				row = &E.row[E.cy];
 			}
 			break;
 		case ARROW_DOWN:
-			if (row && E.cy < E.numrows-1) {
+			if (E.cy < E.numrows-1) {
 				E.cy++;
+				row = &E.row[E.cy];
 			}
 			break;
 	}
-	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
-	int rowlen = row ? row->size-1 : 0;
+	int rowlen = row->size == 0 ? 0 : row->size-1;
 	if (key == ARROW_UP || key == ARROW_DOWN) {
 		if (E.rx < E.sticky) E.rx = E.sticky;
-		E.cx = row ? editorRowRxToCx(row, E.rx) : 0;
+		E.cx = editorRowRxToCx(row, E.rx);
 	}
 	if (E.cx > rowlen) { //Snap cursor back to end of line
 		E.cx = rowlen;
 	}
-	E.rx = row ? editorRowCxToRx(row, E.cx) : 0;
+	E.rx = editorRowCxToRx(row, E.cx);
+	
+	//Selected bounds configuring
+	if (E.cy < anch_y || (E.cy == anch_y && E.cx < anch_x)) { //If new cursor position to the "left" of anchor, start becomes cursor, end becomes anchor
+		E.selected[SELECTED_STARTY] = E.cy;
+		E.selected[SELECTED_STARTX] = E.cx;
+		E.selected[SELECTED_ENDY] = anch_y;
+		E.selected[SELECTED_ENDX] = anch_x;
+	}
+	else { //If new cursor positin to the "right" of anchor (or ontop of anchor), start becomes anchor, end becomes cursor
+		E.selected[SELECTED_STARTY] = anch_y;
+		E.selected[SELECTED_STARTX] = anch_x;
+		E.selected[SELECTED_ENDY] = E.cy;
+		E.selected[SELECTED_ENDX] = E.cx;
+	}
+
+	
+	markRedrawRow((E.cy-E.rowoff), REDRAW_DEF);
+	int oldRow = startY - E.rowoff;
+	if (E.cy != startY && ((oldRow) < E.screenrows && (oldRow) >= 0)) markRedrawRow(oldRow, REDRAW_DEF);
 }
 
 void editorHghlt(int c) {
-	static char hl_dir = LEFT;
+	static int quit_times = JIM_QUIT_TIMES;
 	switch (c) {
         case CTRL_KEY('c'):
 	    editorCopy();
@@ -85,9 +107,19 @@ void editorHghlt(int c) {
 	    editorPaste();
 	    break;
 
+	case CTRL_KEY('q'):
+	    if (E.dirty && quit_times > 0) {
+		editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+		quit_times--;
+		return;
+	    }
+	    write(STDOUT_FILENO, "\x1b[2J", 4);
+	    write(STDOUT_FILENO, "\x1b[H", 3);
+	    exit(0);
+	    break;
+
         case '\r':
 	case CTRL_KEY('e'):
-        case CTRL_KEY('q'):
         case '\x1b': 
             //{ editorSetStatusMessage("E.selected: {%d,%d,%d,%d}", E.selected[0], E.selected[1], E.selected[2], E.selected[3]); }
 	    exitSelect();
@@ -102,84 +134,17 @@ void editorHghlt(int c) {
         
         case ARROW_UP:
 	case ARROW_DOWN:
-	    selectMoveCursor(c);
-            if (hl_dir == LEFT) {
-		E.selected[0] = E.cy;
-		E.selected[2] = E.cx;
-	    }
-	    else {
-		E.selected[1] = E.cy;
-		E.selected[3] = E.cx;
-	    }
-	    if (E.selected[0] == E.selected[1] && E.selected[2] > E.selected[3]) {
-		int temp = E.selected[2];
-		E.selected[2] = E.selected[3];
-		E.selected[3] = temp;
-		hl_dir = !hl_dir;
-	    }
-	    else if (E.selected[0] > E.selected[1]) {
-		int temp = E.selected[0];
-		E.selected[0] = E.selected[1];
-		E.selected[1] = temp;
-		temp = E.selected[2];
-		E.selected[2] = E.selected[3];
-		E.selected[3] = temp;
-		hl_dir = !hl_dir;
-	    }
-	    THREAD_LOCK(T.redrawLock);
-	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-	    if (c == ARROW_UP && E.cy+1-E.rowoff < E.screenrows) redrawLine[E.cy+1-E.rowoff] |= REDRAW_DEF;
-	    else if (E.cy-1-E.rowoff >= 0) redrawLine[E.cy-1-E.rowoff] |= REDRAW_DEF;
-	    THREAD_UNLOCK(T.redrawLock);
-            break;
-            
         case ARROW_LEFT:
-	    selectMoveCursor(c);
-     	    if (hl_dir == LEFT) {    
-		if (E.cy < E.selected[0]) E.selected[0] = E.cy;
-		E.selected[2] = E.cx;
-	    }
-	    else {
-		if (E.cy < E.selected[1]) E.selected[1] = E.cy;
-		E.selected[3] = E.cx;
-	    }
-	    if (E.selected[0] == E.selected[1] && E.selected[2] > E.selected[3]) {
-		int temp = E.selected[2];
-		E.selected[2] = E.selected[3];
-		E.selected[3] = temp;
-		hl_dir = !hl_dir;
-	    }
-	    THREAD_LOCK(T.redrawLock);
-	    if (E.cy+1-E.rowoff < E.screenrows) redrawLine[E.cy+1-E.rowoff] |= REDRAW_DEF;
-	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-	    THREAD_UNLOCK(T.redrawLock);
-	    break;
-            
         case ARROW_RIGHT:
+	case DEFAULT_KEY:
 	    selectMoveCursor(c);
-	    if (hl_dir == RIGHT) {
-        	if (E.cy > E.selected[1]) E.selected[1] = E.cy;
-		E.selected[3] = E.cx;
-	    }
-	    else {
-		if (E.cy > E.selected[0]) E.selected[0] = E.cy;
-		E.selected[2] = E.cx;
-	    }
-	    if (E.selected[0] == E.selected[1] && E.selected[2] > E.selected[3]) {
-		int temp = E.selected[2];
-		E.selected[2] = E.selected[3];
-		E.selected[3] = temp;
-		hl_dir = !hl_dir;
-	    }
-	    THREAD_LOCK(T.redrawLock);
-	    if (E.cy-1-E.rowoff > 0) redrawLine[E.cy-1-E.rowoff] |= REDRAW_DEF; 
-	    redrawLine[E.cy-E.rowoff] |= REDRAW_DEF;
-	    THREAD_UNLOCK(T.redrawLock);
 	    break;
 
 	default:
 		break;
 	}
+	if (E.keypressCallback) E.keypressCallback();
+	quit_times = JIM_QUIT_TIMES;
 }
 
 void editorMoveLine() {
@@ -190,11 +155,8 @@ void editorMoveLine() {
 		E.cx = 0;
 		E.cy = line-1;
 	}	
-	THREAD_LOCK(T.redrawLock);
-	for (int i = 0; i < E.screenrows; i++) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	free(query);
+	markRedraw(0, E.screenrows, REDRAW_DEF);
 }
 
 void editorPaste() {
@@ -213,11 +175,7 @@ void editorPaste() {
 	int start = prev_cy - E.rowoff;
 	if (start < 0) start = 0;
 	int end = E.cy - E.rowoff + 1;
-	THREAD_LOCK(T.redrawLock);
-	for (int i = start; i < end; i++) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(start, end, REDRAW_DEF);
 }
 
 void editorCopy() {
@@ -277,11 +235,7 @@ void editorDelSelect() {
 		}
 	}
 	int start = (E.cy - E.rowoff < 0) ? 0 : E.cy - E.rowoff;
-	THREAD_LOCK(T.redrawLock);
-	for (int i = start; i < E.screenrows; i++) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(start, E.screenrows, REDRAW_DEF);
 }
 
 void editorInsertChar(int c) {
@@ -309,7 +263,7 @@ void editorInsertChar(int c) {
 	}
 	E.cx++;
 	E.sticky = editorRowCxToRx(&E.row[E.cy],E.cx);
-	if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
+	if (E.cy-E.rowoff >= 0) { markRedrawRow(E.cy-E.rowoff, REDRAW_DEF); }
 }
 
 void editorInsertNewline() {
@@ -348,11 +302,7 @@ void editorInsertNewline() {
 	E.cx = 0;
 	int line = E.cy-1-E.rowoff;
 	if (line < 0) line = 0;
-	THREAD_LOCK(T.redrawLock);
-	for ( int i = line; i < E.screenrows; i++ ) {
-		redrawLine[i] |= REDRAW_DEF;
-	}
-	THREAD_UNLOCK(T.redrawLock);
+	markRedraw(line, E.screenrows, REDRAW_DEF);
 	E.urType = WRITE;
 }
 
@@ -382,7 +332,7 @@ void editorDelChar() {
 		}
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
-		if (E.cy-E.rowoff >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[E.cy-E.rowoff] |= REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
+		if (E.cy-E.rowoff >= 0) markRedrawRow(E.cy-E.rowoff, REDRAW_DEF);
 	}
 	else {
 		if (E.urMode) {
@@ -401,26 +351,22 @@ void editorDelChar() {
 		E.cy--;
 		int line = E.cy-E.rowoff;
 		if (line < 0) line = 0;
-		THREAD_LOCK(T.redrawLock);
-		for ( int i = line; i < E.screenrows; i++ ) {
-			redrawLine[i] |= REDRAW_DEF;
-		}
-		THREAD_UNLOCK(T.redrawLock);
+		markRedraw(line, E.screenrows, REDRAW_DEF);
 	}
 	row = &E.row[E.cy];
 	E.sticky = editorRowCxToRx(row, E.cx);
 	E.urType = DELETE_UR;
 }
 
-int isSeparator(int c) {
+static int isSeparator(int c) {
 	return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[]{};:", c) != NULL;
 }
 
-int isHex(int c) {
+static int isHex(int c) {
 	return strchr("0123456789abcdefABCDEF", c) != NULL;
 }
 
-int isBin(int c) {
+static int isBin(int c) {
 	return c == '0' || c == '1';
 }
 
@@ -447,7 +393,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 		int prev_sep = 1;
 	
 		for (int i = 0; i < row->rsize; i++) {
-			char c = row->render[i];
+			unsigned char c = (unsigned char)row->render[i];
 			unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : NORM;
 	
 			if (slc_len && !in_comment && !in_string) {
@@ -511,7 +457,7 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 					continue;
 				}
 				if (binNum) {
-					if (!isBin(c)) { hexNum = 0; prev_sep = 0; continue; }
+					if (!isBin(c)) { binNum = 0; prev_sep = 0; continue; }
 					row->hl[i] = NUMBER;
 					prev_sep = 0;
 					continue;
@@ -555,12 +501,12 @@ void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode) {
 			if (binNum && !(c == '0' || c == '1')) binNum = 0;
 			prev_sep = isSeparator(c);		
 		}
-		if ((row->hl_open_comment != in_comment && E.syn.flags & HGHLT_ML_CM) || (row->hl_open_string != in_string && E.syn.flags & HGHLT_ML_STRINGS)) {
+		if ((row->hl_open_comment != in_comment && syn->flags & HGHLT_ML_CM) || (row->hl_open_string != in_string && syn->flags & HGHLT_ML_STRINGS)) {
 			changed = 1;
-			if ((row->hl_open_comment != in_comment && E.syn.flags & HGHLT_ML_CM)) row->hl_open_comment = in_comment;
-			if ((row->hl_open_string != in_string && E.syn.flags & HGHLT_ML_STRINGS)) row->hl_open_string = in_string;
+			if ((row->hl_open_comment != in_comment && syn->flags & HGHLT_ML_CM)) row->hl_open_comment = in_comment;
+			if ((row->hl_open_string != in_string && syn->flags & HGHLT_ML_STRINGS)) row->hl_open_string = in_string;
 		}
-		if (row->ind - offset < screenrows && row->ind - offset >= 0) { THREAD_LOCK(T.redrawLock); redrawLine[row->ind - offset] |= (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF; THREAD_UNLOCK(T.redrawLock); }
+		if (row->ind - offset < screenrows && row->ind - offset >= 0) markRedrawRow((row->ind - offset), (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF);
 	} while (changed && (row->ind + 1 < numrows));
 }
 

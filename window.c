@@ -62,9 +62,7 @@ void clearWindow() {
 	freeSyntax(&E.win.syn);
 	memset(&E.win, 0, sizeof(windowConfig));
 	E.win.slot = -1;
-	THREAD_LOCK(T.redrawLock);
-	redrawWholeScreen = 1;
-	THREAD_UNLOCK(T.redrawLock);
+	markRedrawAll();
 }
 
 void drawWindow(struct abuf* ab, int y) {
@@ -189,12 +187,14 @@ void windowDelRow(int row) {
 void windowSetRow(char* text, int row, size_t len) {
 	if (row < 0 || row >= E.win.numrows) return;
 	THREAD_LOCK(T.windowThreadLock);
+	editorFreeRow(&E.win.row[row]);
 	E.win.row[row].size = len;
-	free(E.win.row[row].chars);
-	E.win.row[row].chars = text;
+	E.win.row[row].chars = malloc(len+1);
+	memcpy(E.win.row[row].chars, text, len);
 	E.win.row[row].chars[len] = '\0';
 	E.win.row[row].rsize = 0;
 	E.win.row[row].render = NULL;
+	E.win.row[row].hl = NULL;
 	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
 	THREAD_UNLOCK(T.windowThreadLock);
 }
@@ -233,11 +233,7 @@ void windowPageScroll(int c) {
 	}
 	THREAD_UNLOCK(T.windowThreadLock);
 	if ( init_x != E.win.xOffset || init_y != E.win.yOffset ) {
-		THREAD_LOCK(T.redrawLock);
-		for (int i = 0; i < E.win.screenrows; i++) {
-			redrawLine[i] |= REDRAW_WIN;
-		}
-		THREAD_UNLOCK(T.redrawLock);
+		markRedraw(0, E.win.screenrows, REDRAW_WIN);
 	}
 }
 

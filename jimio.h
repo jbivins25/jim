@@ -16,5 +16,9 @@ char* editorPrompt(char* prompt, void (*callback)(char *, int));
 void editorMoveCursor(int key);
 void editorProcessKeypress(int c);
 void editorWaitEvent();
+//Control redraw state
+void markRedraw(int from, int to, int flag);
+void markRedrawRow(int row, int flag);
+void markRedrawAll();
 
 #endif

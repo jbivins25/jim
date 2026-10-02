@@ -2,6 +2,7 @@
 #define JIM_SELECT
 #include "data.h"
 #include "editor.h"
+#include "jimio.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -43,9 +44,7 @@ int jim_select(const int argc, const char* args[]) {
 	}
 	E.cy = E.selected[1];
 	E.cx = E.selected[3];
-	THREAD_LOCK(T.redrawLock);
-	redrawWholeScreen = 1;
-	THREAD_UNLOCK(T.redrawLock);
+	markRedrawAll();
 	return 0;
 }
 

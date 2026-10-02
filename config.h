@@ -8,6 +8,7 @@
 #include "jim_commands/jim_showthreads.h"
 #include "jim_commands/jim_dumptree.h"
 #include "jim_commands/jim_toggleline.h"
+#include "jim_commands/jim_editorstate.h"
 // =================================
 
 typedef int (*CommandFunc)(const int argc, const char* args[]); //By default, 0 will be interpretted as success and any negative values are errors which will be printed
@@ -28,7 +29,8 @@ commandEntry command_table[] = {
 	{"select",jim_select},
 	{"showthreads",jim_showthreads},
 	{"dumptree",jim_dumptree},
-	{"tl",jim_toggleline}
+	{"tl",jim_toggleline},
+	{"editorstate",jim_editorstate}
 };
 
 #define COM_TAB_SIZE (sizeof(command_table)/sizeof(commandEntry))

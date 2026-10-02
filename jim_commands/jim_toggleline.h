@@ -3,6 +3,7 @@
 #include <string.h>
 #include "compat.h"
 #include "data.h"
+#include "jimio.h"
 
 int jim_toggleline(const int argc, const char* args[]) {
 	if (argc == 0) {
@@ -14,9 +15,7 @@ int jim_toggleline(const int argc, const char* args[]) {
 			if (!E.linenum) E.linenum = 1;
 		}
 	}
-	THREAD_LOCK(T.redrawLock);
-	redrawWholeScreen = 1;
-	THREAD_UNLOCK(T.redrawLock);
+	markRedrawAll();
 	return 0;
 }
 

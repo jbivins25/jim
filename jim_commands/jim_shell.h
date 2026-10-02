@@ -126,11 +126,7 @@ void Worker(void* param) {
 				E.win.yOffset = 0;
 			}
 			E.win.xOffset = 0;
-			THREAD_LOCK(T.redrawLock);
-			for (int i = 0; i < E.win.screenrows; i++) {
-				redrawLine[i] |= REDRAW_WIN;
-			}
-			THREAD_UNLOCK(T.redrawLock);
+			markRedraw(0, E.win.screenrows, REDRAW_WIN);
 			THREAD_LOCK(T.eventPipeLock);
 			write(eventPipe[1], &redrawChar, 1);
 			THREAD_UNLOCK(T.eventPipeLock);
@@ -284,11 +280,7 @@ unsigned __stdcall Worker(void* lpParam) {
 					E.win.yOffset = 0;
 				}
 				E.win.xOffset = 0;
-				THREAD_LOCK(T.redrawLock);
-				for (int i = 0; i < E.win.screenrows; i++) {
-					redrawLine[i] |= REDRAW_WIN;
-				}
-				THREAD_UNLOCK(T.redrawLock);
+				markRedraw(0, E.win.screenrows, REDRAW_WIN);
 				THREAD_LOCK(T.eventPipeLock);
 				WriteFile(eWritePipe, &e, 1, NULL, NULL);
 				THREAD_UNLOCK(T.eventPipeLock);
@@ -314,11 +306,7 @@ unsigned __stdcall Worker(void* lpParam) {
 					}
 					E.win.xOffset = 0;
 
-					THREAD_LOCK(T.redrawLock);
-					for (int i = 0; i < E.win.screenrows; i++) {
-						redrawLine[i] |= REDRAW_WIN;
-					}
-					THREAD_UNLOCK(T.redrawLock);
+					markRedraw(0, E.win.screenrows, REDRAW_WIN);
 			
 					THREAD_LOCK(T.eventPipeLock);
 					WriteFile(eWritePipe, &e, 1, NULL, NULL);
@@ -344,11 +332,7 @@ unsigned __stdcall Worker(void* lpParam) {
 			}
 			E.win.xOffset = 0;
 		
-			THREAD_LOCK(T.redrawLock);
-			for (int i = 0; i < E.win.screenrows; i++) {
-				redrawLine[i] |= REDRAW_WIN;
-			}
-			THREAD_UNLOCK(T.redrawLock);
+			markRedraw(0, E.win.screenrows, REDRAW_WIN);
 	
 			THREAD_LOCK(T.eventPipeLock);
 			WriteFile(eWritePipe, &e, 1, NULL, NULL);

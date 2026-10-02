@@ -136,15 +136,11 @@ int getWindowSize(int* rows, int* cols) {
 
 int editorReadEvent() {
 	int nread;
-	int c;
+	char c;
 	while ((nread = read(eventPipe[0], &c, 1)) != 1) {
 		if (nread == -1 && errno != EAGAIN && errno != EINTR) die("read"); //To allow for Cygwin we check for EAGAIN
-		switch(c) {
-			default:
-				break;
-		}
 	}
-	return 0;
+	return (int)c;
 }
 
 char terminalWaitEvent() {
@@ -224,21 +220,21 @@ void clearWindow(); //Needed to not include any extra headers, only used for win
 
 void win_sighandler(int sig) {
 	if (SIGWINCH == sig) {
-		//write(STDOUT_FILENO, "\x1b[2J", 4);
+		char clearWinFlag = 0;
 		if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 		E.screenrows -= 2;
 		if (E.win.active) {
 			E.win.screencols = E.screencols/E.win.divider;
 			E.screencols -= E.win.screencols;
 			if (E.win.screencols < E.win.minCols) {
-				clearWindow();
+				clearWinFlag = 1;
 			}
 			else {
 				E.win.screenrows = E.screenrows;
 			}
 		}
-		redrawWholeScreen = 1;
-		write(eventPipe[1], "r", 1);
-		
+		redrawWholeScreen = 1; //Have to just change and hope for the best to prevent deadlock
+		if (clearWinFlag) write(eventPipe[1], "d", 1);
+		else write(eventPipe[1], "r", 1);
 	}
 }

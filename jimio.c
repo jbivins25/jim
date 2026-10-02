@@ -17,6 +17,27 @@
 #include "compat.h"
 #include <time.h>
 
+void markRedraw(int from, int to, int flag) {
+	THREAD_LOCK(T.redrawLock);
+	int i = from;
+	do {
+		redrawLine[i] |= flag;
+		i++;
+	} while (i < to); //Do while loop so if from == to (aka only one line should be redrawn) it works as expected
+	THREAD_UNLOCK(T.redrawLock);
+}
+
+void markRedrawRow(int row, int flag) {
+	THREAD_LOCK(T.redrawLock);
+	redrawLine[row] |= flag;
+	THREAD_UNLOCK(T.redrawLock);
+}
+
+void markRedrawAll() {
+	THREAD_LOCK(T.redrawLock);
+	redrawWholeScreen = 1;
+	THREAD_UNLOCK(T.redrawLock);
+}
 
 void editorScroll() {
 	int init_rowoff, init_coloff;
@@ -39,11 +60,7 @@ void editorScroll() {
 		E.coloff = E.rx - E.screencols + 1;
 	}
 	if (E.rowoff != init_rowoff || E.coloff != init_coloff) {
-		THREAD_LOCK(T.redrawLock);
-		for (int i = 0; i < E.screenrows; i++) {
-			redrawLine[i] |= REDRAW_DEF;
-		}
-		THREAD_UNLOCK(T.redrawLock);
+		markRedraw(0, E.screenrows, REDRAW_DEF);
 	}
 }
 
@@ -327,6 +344,7 @@ enclosure enclosureLookup(char type) {
 
 void editorMatchMark() {
 	if (E.syn.filetype == NULL) return;
+	if (E.cy >= E.numrows) return;
 	char init = E.row[E.cy].chars[E.cx];
 	enclosure match = enclosureLookup(init);
 	if (match.type == 0) return;
@@ -444,22 +462,23 @@ void editorProcessKeypress(int c) {
 
 		case CTRL_KEY('e'):
 			E.mode = SELECT;
-			if (E.cx == E.row[E.cy].size && E.cx > 0) E.cx = E.cx-1;
-			E.selected[0] = E.selected[1] = E.cy;
-			E.selected[2] = E.selected[3] = E.cx;
+			if (E.cy == E.numrows) { E.cy = E.numrows-1; E.cx = E.row[E.cy].size == 0 ? 0 : E.row[E.cy].size-1; }
+			if (E.cx >= E.row[E.cy].size && E.cx > 0) E.cx = E.row[E.cy].size == 0 ? 0 : E.row[E.cy].size-1;
+			E.selected[SELECTED_STARTY] = E.selected[SELECTED_ENDY] = E.cy;
+			E.selected[SELECTED_STARTX] = E.selected[SELECTED_ENDX] = E.cx;
 			break;
 
 		case CTRL_KEY('a'):
+			if (E.numrows == 0) break;
 			if (E.mode != SELECT) E.mode = SELECT;
-			E.selected[0] = 0;
-			E.selected[1] = E.numrows-1;
-			E.selected[2] = 0;
-			E.selected[3] = E.row[E.numrows-1].size-1;
-			E.cx = E.row[E.numrows-1].size-1;
-			E.cy = E.numrows-1;
-			THREAD_LOCK(T.redrawLock);
-			redrawWholeScreen = 1;
-			THREAD_UNLOCK(T.redrawLock);
+			E.selected[SELECTED_STARTY] = 0;
+			E.selected[SELECTED_ENDY] = E.numrows-1;
+			E.selected[SELECTED_STARTX] = 0;
+			E.selected[SELECTED_ENDX] = E.row[E.numrows-1].size == 0 ? 0 : E.row[E.numrows-1].size-1;
+			E.cx = E.selected[SELECTED_ENDX];
+			E.cy = E.selected[SELECTED_ENDY];
+			editorHghlt(DEFAULT_KEY); //to set the anchor values as 0, 0
+			markRedrawAll();
 			break;
 
 		case CTRL_KEY('y'):
@@ -491,12 +510,9 @@ void editorProcessKeypress(int c) {
 			break;
 
 		case CTRL_KEY('t'):
-			if ( E.win.active && !strcmp(E.win.header, "Tree")) {
-				clearWindow();
-				E.keypressCallback = NULL;
-			}
+			if ( E.win.active && !strcmp(E.win.header, "Tree")) { clearWindow(); }
 			else {
-				windowSetup(WINDOW_LEFT, 20, 5, treeProcessKey, strdup("Tree"));
+				windowSetup(WINDOW_LEFT | SET_CALLBACK, 20, 5, treeProcessKey, strdup("Tree"));
 				E.keypressCallback = drawTree;
 				drawTree();
 				if (E.win.screencols < E.win.minCols) clearWindow();
@@ -578,8 +594,11 @@ void editorWaitEvent() {
 
 	if (event & EVENT_QUEUE) {
 		int e = editorReadEvent();
-		(void) e;
-		// for processing events, currently only have one event: refresh
-		// editorReadEvent is only called currently to clear the queue
+		switch(e) {
+			case('d'): //d for destroy window, sent through queue if it isn't safe to call clearWindow for deadlocking reasons
+				clearWindow();
+			default:
+				break;
+		}
 	}
 }

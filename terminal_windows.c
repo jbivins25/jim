@@ -58,9 +58,7 @@ int editorReadKey() {
 					E.win.screenrows = E.screenrows;
 				}
 			}
-			THREAD_LOCK(T.redrawLock);
-			redrawWholeScreen = 1;
-			THREAD_UNLOCK(T.redrawLock);
+			markRedrawAll();
 			return -1;
 		}
 		

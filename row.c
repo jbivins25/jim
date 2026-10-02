@@ -68,13 +68,17 @@ void editorInsertRow(int at, char *s, size_t len) {
 	E.row[at].hl_open_string = 0;
 	editorUpdateRow(&E.row[at], &E.syn, NORMAL);
 	E.numrows++;
-	E.dirty++;
+	E.dirty = 1;
 }
 
 void editorFreeRow(erow *row) {
+	if (row == NULL) return;
 	free(row->render);
 	free(row->chars);
 	free(row->hl);
+	row->render = NULL;
+	row->chars = NULL;
+	row->hl = NULL;
 }
 
 void editorDelRow(int at) {
@@ -83,7 +87,7 @@ void editorDelRow(int at) {
 	memmove(&E.row[at], &E.row[at + 1], sizeof(erow) * (E.numrows - at - 1)); //Move everything after up
 	for (int j = at; j < E.numrows - 1; j++) E.row[j].ind--;
 	E.numrows--;
-	E.dirty++;
+	E.dirty = 1;
 }
 
 void editorRowInsertChar(erow *row, int at, int c) {
@@ -93,7 +97,7 @@ void editorRowInsertChar(erow *row, int at, int c) {
 	row->size++;
 	row->chars[at] = c;
 	editorUpdateRow(row, &E.syn, NORMAL);
-	E.dirty++;
+	E.dirty = 1;
 }
 
 void editorRowAppendString(erow* row, char* s, size_t len) {
@@ -102,7 +106,7 @@ void editorRowAppendString(erow* row, char* s, size_t len) {
 	row->size += len;
 	row->chars[row->size] = '\0';
 	editorUpdateRow(row, &E.syn, NORMAL);
-	E.dirty++;
+	E.dirty = 1;
 }
 
 void editorRowDelChar(erow *row, int at) {
@@ -110,5 +114,5 @@ void editorRowDelChar(erow *row, int at) {
 	memmove(&row->chars[at], &row->chars[at + 1], row->size - at); //Just shift row over from at+1 onto at
 	row->size--;
 	editorUpdateRow(row, &E.syn, NORMAL);
-	E.dirty++;
+	E.dirty = 1;
 }
