@@ -1,4 +1,5 @@
 #include "data.h"
+#include "ab.h"
 #define WIN_SIG
 #include "terminal.h"
 #include "row.h"
@@ -14,6 +15,7 @@
 
 struct editorConfig E;
 editorThreads T = {0};
+struct abuf ab = ABUF_INIT;
 char redrawLine[SCREEN_ROW_MAX] = {0};
 int redrawWholeScreen = 1;
 #ifndef _WIN32
@@ -25,15 +27,13 @@ HANDLE hEvents[2];
 #endif
 
 void freeEditor() {
-	if (E.win.active) clearWindow();
 	for (int i = 0; i < E.numrows; i++) {
 		editorFreeRow(&E.row[i]);
 	}
 	free(E.row);	
 	free(E.filename);
 	free(E.cpbuffer);	
-	for (int i = 0; i < E.win.numrows; i++) editorFreeRow(&E.win.row[i]);
-	free(E.win.row);
+	if (E.win.active) clearWindow();
 	freeTree(&E.tree);
 	freeSyntax(&E.syn);
 	#ifndef _WIN32
@@ -53,6 +53,10 @@ void freeLocks() {
 	DELETE_LOCK(T.windowThreadLock);
 	DELETE_LOCK(T.setMessageLock);
 	DELETE_LOCK(T.eventPipeLock);
+}
+
+void freeBuffer() {
+	abFree(&ab);
 }
 
 void initEditor() {
@@ -120,6 +124,7 @@ int main(int argc, char *argv[]) {
 	atexit(freeEditor);
 	initLocks();
 	atexit(freeLocks);
+	atexit(freeBuffer);
 	#ifndef _WIN32
 	signal(SIGWINCH, win_sighandler);
 	#endif

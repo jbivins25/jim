@@ -17,6 +17,7 @@ void initTree(urTree* tree) {
 	tree->root->childlen = 0;
 	tree->root->children = NULL;
 	tree->root->chars = NULL;
+	tree->root->length = 0;
 	tree->curr = tree->root;
 }
 
@@ -55,11 +56,20 @@ void addNode(char type, int startx, int starty, char c) {
 	clock_gettime(CLOCK_MONOTONIC, &E.tree.curr->timestamp);
 }
 
-void appendUrChar(char c) {
+void appendUrChar(char c, int endx, int endy) {
 	E.tree.curr->chars = realloc(E.tree.curr->chars,sizeof(char)*(E.tree.curr->length+1));
 	E.tree.curr->chars[E.tree.curr->length++] = c;	
-	E.tree.curr->end[0] = E.cx;
-	E.tree.curr->end[1] = E.cy;
+	E.tree.curr->end[0] = endx;
+	E.tree.curr->end[1] = endy;
+	clock_gettime(CLOCK_MONOTONIC, &E.tree.curr->timestamp);
+}
+
+void appendUrCharRange(char* text, size_t len, int endx, int endy) {
+	E.tree.curr->chars = realloc(E.tree.curr->chars,sizeof(char)*(E.tree.curr->length+len));
+	memcpy(&E.tree.curr->chars[E.tree.curr->length], text, len);
+	E.tree.curr->length += len;
+	E.tree.curr->end[0] = endx;
+	E.tree.curr->end[1] = endy;
 	clock_gettime(CLOCK_MONOTONIC, &E.tree.curr->timestamp);
 }
 
@@ -68,26 +78,34 @@ void undo() {
 	E.urMode = 0;
 	urBlock* curr = E.tree.curr;
 	if (curr->type == WRITE) {
-		E.cx = curr->end[0];
-		E.cy = curr->end[1];
-		for ( int i = 0; i < curr->length; i++ ) {
-			editorDelChar();
-		}
+		editorDelRowsRange(curr->start[1], curr->end[1], curr->start[0], curr->end[0]);
+		E.cx = curr->start[0];
+		E.cy = curr->start[1];
 	}
 	else {
-		E.cx = curr->end[0];
-		E.cy = curr->end[1];
-		if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
-		for ( int i = curr->length-1; i >= 0; i-- ) {
-			if (curr->chars[i] != '\r') {
-				editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); 
-				E.cx++;
-			}
-			else editorInsertNewline();
+		if (curr->end[1] == E.numrows) editorInsertRow(E.numrows,"",0);
+		int length = curr->length;
+		char* text = malloc(length);
+		for ( int i = length-1; i >= 0; i-- ) {
+			text[length-1-i] = curr->chars[i];
 		}
+		int start = 0;
+		for ( int i = 0; i < length; i++ ) {
+			if (text[i] != '\r') continue;
+			else {
+				if (start < i) editorInsertCharRange(text+start, i-start);
+				editorInsertNewline();
+				start = i+1;
+			}
+		}
+		if (start < curr->length) editorInsertCharRange(text+start, curr->length-start);
+		free(text);
+		E.cx = curr->start[0];
+		E.cy = curr->start[1];
 	}
 	markRedraw(0, E.screenrows, REDRAW_DEF);
 	E.tree.curr = E.tree.curr->parent;
+	E.urType = E.tree.curr->type;
 	E.urMode = 1;
 }
 
@@ -101,27 +119,33 @@ void redo() {
 		sec = sec * 1000 + nsec / 1000000;
 		if (sec < 0) ind = i;
 	}
+
 	E.tree.curr = E.tree.curr->children[ind];	
 	urBlock* curr = E.tree.curr;
+
 	if (curr->type == DELETE_UR) {
-		E.cx = curr->start[0];
-		E.cy = curr->start[1];
-		for ( int i = 0; i < curr->length; i++ ) {
-			editorDelChar();
-		}
+		int endrow_x = curr->start[0] > 0 ? curr->start[0]-1 : 0;
+		editorDelRowsRange(curr->end[1], curr->start[1], curr->end[0], endrow_x);
+		E.cx = curr->end[0];
+		E.cy = curr->end[1];
 	}
 	else {
-		E.cx = curr->start[0];
-		E.cy = curr->start[1];
 		if (E.cy == E.numrows) editorInsertRow(E.numrows,"",0);
+		int start = 0;
 		for ( int i = 0; i < curr->length; i++ ) {
-			if (curr->chars[i] != '\r') {
-				editorRowInsertChar(&E.row[E.cy], E.cx, curr->chars[i]); 
-				E.cx++;
+			if (curr->chars[i] != '\r') continue;
+			else {
+				if (start < i) editorInsertCharRange(curr->chars+start, i-start);
+				editorInsertNewline();
+				start = i+1;
 			}
-			else editorInsertNewline();
 		}
+		if (start < curr->length) editorInsertCharRange(curr->chars+start, curr->length-start);
+		E.cx = curr->end[0]+1;
+		E.cy = curr->end[1];
 	}
+
+	E.urType = E.tree.curr->type;
 	markRedraw(0, E.screenrows, REDRAW_DEF);
 	E.urMode = 1;
 }

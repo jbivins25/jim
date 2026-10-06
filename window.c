@@ -83,7 +83,6 @@ void drawWindow(struct abuf* ab, int y) {
 		inv_bg_len = snprintf(inv_bg, sizeof(inv_bg), "\x1b[%dm", INV_BG);
 		inv_fg_len = snprintf(inv_fg, sizeof(inv_bg), "\x1b[%dm", INV_FG);
 	}
-	THREAD_LOCK(T.windowThreadLock);
 	if (E.win.location == 1) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.screencols+1);
 		abAppend(ab, buf, strlen(buf));
@@ -146,7 +145,6 @@ void drawWindow(struct abuf* ab, int y) {
 		abAppend(ab,def_fg, def_fg_len);		
 	}
 	else abAppend(ab, "\x1b[K", 3);
-	THREAD_UNLOCK(T.windowThreadLock);
 }
 
 int windowAddRow(char* text, int row, size_t len) {

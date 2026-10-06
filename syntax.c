@@ -12,6 +12,7 @@
 #endif
 
 void loadSyntax(const char* filename, editorSyntax* syn) {
+	if (filename == NULL) return;
 	char* ext = strrchr(filename, '.');
 	if (!ext) return;
 	size_t len = strlen(++ext);
@@ -31,13 +32,15 @@ void loadSyntax(const char* filename, editorSyntax* syn) {
 	char* line = NULL;
 	size_t cap = 0;
 	getline(&line, &cap, f);
+	if (!strcmp(line, "JIMSYN")) return;
+	getline(&line, &cap, f);
 	sscanf(line, "%d %d", &syn->keywordCount, &syn->typeCount);
 	syn->keywords = malloc(sizeof(char*)*syn->keywordCount);
 	syn->keywordLen = malloc(sizeof(char)*syn->keywordCount);
 	char* line_t;
 	for ( int i = 0; i < syn->keywordCount; i++ ) {
 		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		while ((len > 0) && (line[len-1] == '\n' || line[len-1] == '\r')) len--;
 		line_t = malloc(len+1);
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';
@@ -45,33 +48,35 @@ void loadSyntax(const char* filename, editorSyntax* syn) {
 		syn->keywordLen[i] = len;
 	}
 	syn->types = malloc(sizeof(char*)*syn->typeCount);
+	syn->typeLen = malloc(sizeof(char)*syn->typeCount);
 	for ( int i = 0; i < syn->typeCount; i++ ) {
 		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		while ((len > 0) && (line[len-1] == '\n' || line[len-1] == '\r')) len--;
 		line_t = malloc(len+1);
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';
 		syn->types[i] = line_t;
+		syn->typeLen[i] = len;
 	}
 	getline(&line, &cap, f);
 	sscanf(line, "%d", &syn->flags);
-	if (syn->flags & HGHLT_SL_CM) {
+	if (syn->flags & HL_SL_CM) {
 		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		while ((len > 0) && (line[len-1] == '\n' || line[len-1] == '\r')) len--;
 		line_t = malloc(len+1);
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';
 		syn->slComment = line_t;
 	}
-	if (syn->flags & HGHLT_ML_CM) {
+	if (syn->flags & HL_ML_CM) {
 		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		while ((len > 0) && (line[len-1] == '\n' || line[len-1] == '\r')) len--;
 		line_t = malloc(len+1);
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';
 		syn->mlCommentStart = line_t;
 		len = getline(&line, &cap, f);
-		while (line[len-1] == '\n' || line[len-1] == '\r') len--;
+		while ((len > 0) && (line[len-1] == '\n' || line[len-1] == '\r')) len--;
 		line_t = malloc(len+1);
 		for (size_t j = 0; j < len+1; j++) line_t[j] = line[j];
 		line_t[len] = '\0';

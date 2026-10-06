@@ -88,6 +88,8 @@ int editorReadKey() {
 			case 81: return PAGE_DOWN;
 
 			case 83: return DEL_KEY;
+
+			default: return -1;
 		}
 	}
 
@@ -122,19 +124,15 @@ int getWindowSize(int* rows, int* cols) {
 int editorReadEvent() {
 	DWORD bytesAvailable = 0;
 	DWORD bytesRead;
-	int e;
+	char e;
 	THREAD_LOCK(T.eventPipeLock);
 	if (!PeekNamedPipe(eReadPipe, NULL, 0, NULL, &bytesAvailable, NULL)) die("pipe failed");
 	for (; bytesAvailable > 0; bytesAvailable--) {
 		ReadFile(eReadPipe, &e, 1, &bytesRead, NULL);
-		switch (e) {
-			default:
-				break;
-		}
 	}
 	ResetEvent(hEvents[1]);
 	THREAD_UNLOCK(T.eventPipeLock);
-	return 0;
+	return (int)e;
 }
 
 char terminalWaitEvent() {	

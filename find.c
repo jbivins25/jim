@@ -28,6 +28,7 @@ void editorFindCallback(char* query, int key) {
 	if (last_match == -1) direction = 1;	
 	int current = last_match;
 	int numrows = (E.mode == NORMAL) ? E.numrows : E.win.numrows;
+	int len = strlen(query);
 	for (int i = 0; i < numrows; i++) {
 		current += direction;
 		if (current == -1) current = numrows - 1;
@@ -44,8 +45,8 @@ void editorFindCallback(char* query, int key) {
 			}
 			else {
 				E.win.yOffset = current;
-				E.win.xOffset = editorRowRxToCx(row, match - row->render);
-				markRedraw(0, numrows, REDRAW_WIN);
+				E.win.xOffset = (match+len - row->render < E.win.screencols) ? 0 : match - row->render;
+				markRedraw(0, E.win.screenrows, REDRAW_WIN);
 			}
 			break;
 		}

@@ -82,6 +82,9 @@ void editorDrawRows(struct abuf* ab) {
 		def_bg_len = snprintf(def_bg, sizeof(def_bg), "\x1b[%dm", DEF_BG);
 		hl_bg_len = snprintf(hl_bg, sizeof(hl_bg), "\x1b[%dm", HL_BG);
 	}
+	int sel_sx = E.selected[SELECTED_STARTX], sel_sy = E.selected[SELECTED_STARTY], sel_ex = E.selected[SELECTED_ENDX], sel_ey = E.selected[SELECTED_ENDY];
+	int highlightstartx = sel_sx == -1 ? -1 : editorRowCxToRx(&E.row[sel_sy], sel_sx);
+	int highlightendx = sel_ex == -1 ? -1 : editorRowCxToRx(&E.row[sel_ey], sel_ex);
 	for (int y = 0; y < E.screenrows; y++) { 
 		if ( redrawWholeScreen || redrawLine[y] ) {
 			abAppend(ab, def_fg, def_fg_len);
@@ -111,8 +114,8 @@ void editorDrawRows(struct abuf* ab) {
 						else len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG);
 						abAppend(ab, linenumbuf, len);
 					}
-					if (filerow > E.selected[0] && filerow < E.selected[1]) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
-					if (filerow == E.selected[1] && E.selected[0] != E.selected[1] && E.coloff <= editorRowCxToRx(&E.row[filerow],E.selected[3])) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
+					if (filerow > sel_sy && filerow < sel_ey) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
+					if (filerow == sel_ey && sel_sy != sel_ey && E.coloff <= highlightendx) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 					int len = E.row[filerow].rsize - E.coloff;
 					if (len < 0) len = 0;
 					if (len > E.screencols) len = E.screencols;
@@ -120,7 +123,7 @@ void editorDrawRows(struct abuf* ab) {
 					unsigned char* hl = &E.row[filerow].hl[E.coloff];
 					for (int j = 0; j < len; j++) {
 						int color = editorSyntaxToColor(hl[j]);
-						if (filerow == E.selected[0] && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[2])) {
+						if (filerow == sel_sy && j + E.coloff == highlightstartx) {
 							abAppend(ab, hl_bg, hl_bg_len);
 						}
 						if (color != current_color) {
@@ -143,7 +146,7 @@ void editorDrawRows(struct abuf* ab) {
 							abAppend(ab, buf, clen);
 						}
 						else abAppend(ab, &E.row[filerow].render[E.coloff + j], 1);
-						if (filerow == E.selected[1] && j < len-1 && j + E.coloff == editorRowCxToRx(&E.row[filerow], E.selected[3])) {
+						if (filerow == sel_ey && j < len-1 && j + E.coloff == highlightendx) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
 					}
@@ -222,14 +225,15 @@ void editorDrawMessageBar(struct abuf *ab) {
 void editorRefreshScreen() {
 	editorScroll();
 
-	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); //Hide cursor
 	abAppend(&ab, "\x1b[H", 3); //Positions cursor at top left
+	THREAD_LOCK(T.windowThreadLock);
 	THREAD_LOCK(T.redrawLock);
 	editorDrawRows(&ab);
 	editorDrawStatusBar(&ab);
 	editorDrawMessageBar(&ab);
 	THREAD_UNLOCK(T.redrawLock);
+	THREAD_UNLOCK(T.windowThreadLock);
 	char buf[32];
 	int lineoffset = 0;
 	if (E.linenum) {
@@ -242,7 +246,7 @@ void editorRefreshScreen() {
 	abAppend(&ab, "\x1b[?25h", 6); //View cursor
 
 	write(STDOUT_FILENO, ab.b, ab.len);
-	abFree(&ab);
+	abClear(&ab);
 }
 
 void editorSetStatusMessage(const char *fmt, ...) {
@@ -430,7 +434,7 @@ void editorProcessKeypress(int c) {
 	static int quit_times = JIM_QUIT_TIMES;
 
 	if (E.win.active && E.mode == WINDOW && E.win.handler) { E.win.handler(c); quit_times = JIM_QUIT_TIMES; return;}
-	if (E.mode == SELECT) {editorHghlt(c); quit_times = JIM_QUIT_TIMES; return;}
+	if (E.mode == SELECT) {editorSelectKeypress(c); quit_times = JIM_QUIT_TIMES; return;}
 
 	switch(c) {
 		case '\r': // CTRL_KEY('m') maps to this
@@ -477,7 +481,7 @@ void editorProcessKeypress(int c) {
 			E.selected[SELECTED_ENDX] = E.row[E.numrows-1].size == 0 ? 0 : E.row[E.numrows-1].size-1;
 			E.cx = E.selected[SELECTED_ENDX];
 			E.cy = E.selected[SELECTED_ENDY];
-			editorHghlt(DEFAULT_KEY); //to set the anchor values as 0, 0
+			editorSelectKeypress(DEFAULT_KEY); //to set the anchor values as 0, 0
 			markRedrawAll();
 			break;
 
@@ -550,18 +554,15 @@ void editorProcessKeypress(int c) {
 
 		case PAGE_UP:
 		case PAGE_DOWN:
-			{ //Need local scope to declare variable
-				if (c == PAGE_UP) {
-					E.cy = E.rowoff;
-				}
-				else if (c == PAGE_DOWN) {
-					E.cy = E.rowoff + E.screenrows - 1;
-					if (E.cy > E.numrows) E.cy = E.numrows;
-				}
-
-				int times = E.screenrows;
-				while (times--) editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+			if (c == PAGE_UP) {
+				E.cy = E.rowoff - E.screenrows;
+				if (E.cy < 0) E.cy = 0;
 			}
+			else if (c == PAGE_DOWN) {
+				E.cy = E.rowoff + (2 * E.screenrows) - 1; //Move from end of screen to one "page" or screenrows above
+				if (E.cy > E.numrows) E.cy = E.numrows;
+			}
+			if (E.cx > E.row[E.cy].size) E.cx = E.row[E.cy].size;
 			break;
 		
 		case ARROW_UP:

@@ -3,15 +3,17 @@
 #include "data.h"
 
 void exitSelect();
-void editorHghlt(int c);
+void editorSelectKeypress(int c);
 void editorMoveLine();
 void editorPaste();
 void editorCopy();
 void editorDelSelect();
 void editorInsertChar(int c);
+void editorInsertCharRange(char* text, size_t size);
 void editorInsertNewline();
 void editorDelChar();
-void editorUpdateSyntax(erow *row, editorSyntax* syn, char mode);
+void editorDelRowsRange(int startrow, int endrow, int startrow_x, int endrow_x);
+void editorUpdateSyntax(erow *row, int rowind, editorSyntax* syn, char mode);
 int editorSyntaxToColor(int hl);
 
 #endif

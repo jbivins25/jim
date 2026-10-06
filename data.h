@@ -14,7 +14,7 @@
 #include <time.h>
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define JIM_VERSION "1.9.9"
+#define JIM_VERSION "1.9.10"
 #define JIM_TAB_STOP 8
 #define JIM_QUIT_TIMES 2 //Functionally you have to hit Ctrl-q three times to quit while the file is dirty
 #define SCREEN_ROW_MAX 256
@@ -26,11 +26,11 @@
 
 //====================================
 // Syntax Flags
-#define HGHLT_NUM (1 << 0)
-#define HGHLT_STRING (1 << 1)
-#define HGHLT_SL_CM (1 << 2)
-#define HGHLT_ML_CM (1 << 3)
-#define HGHLT_ML_STRINGS (1 << 4)
+#define HL_NUM (1 << 0)
+#define HL_STRING (1 << 1)
+#define HL_SL_CM (1 << 2)
+#define HL_ML_CM (1 << 3)
+#define HL_ML_STRINGS (1 << 4)
 //====================================
 
 //====================================
@@ -82,7 +82,6 @@ enum urType {
 };
 
 typedef struct erow {
-	int ind;
 	int size;
 	int rsize;
 	char* chars;
@@ -99,6 +98,7 @@ typedef struct {
 	char** keywords;
 	char* keywordLen;
 	char** types;
+	char* typeLen;
 	char* slComment;
 	char* mlCommentStart;
 	char* mlCommentEnd;
@@ -231,6 +231,7 @@ void editorThreadLinkWindow(int slot);
 
 extern struct editorConfig E;
 extern editorThreads T;
+extern struct abuf ab;
 extern char redrawLine[SCREEN_ROW_MAX];
 extern int redrawWholeScreen;
 #ifndef _WIN32

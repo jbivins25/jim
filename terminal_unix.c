@@ -50,7 +50,7 @@ void enableRawMode() {
 
 int editorReadKey() {
 	int nread;
-	char c;
+	char c = -1;
 	nread = read(STDIN_FILENO, &c, 1);
 	if (nread == -1 && errno != EAGAIN && errno != EINTR) die("read"); //To allow for Cygwin we check for EAGAIN
 	if (nread == 0) die("null read");

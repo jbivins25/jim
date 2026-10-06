@@ -6,13 +6,15 @@
 
 int editorRowCxToRx(erow* row, int cx);
 int editorRowRxToCx(erow* row, int rx);
-void editorHghltRow(erow *row, int start, int end);
 void editorUpdateRow(erow* row, editorSyntax* syn, char mode);
 void editorInsertRow(int at, char* s, size_t len);
 void editorFreeRow(erow* row);
 void editorDelRow(int at);
+void editorDelRows(int start, int end);
 void editorRowInsertChar(erow* row, int at, int c);
+void editorRowInsertChars(erow* row, int at, char* text, size_t len);
 void editorRowAppendString(erow* row, char* s, size_t len);
 void editorRowDelChar(erow* row, int at);
+void editorRowDelRange(erow* row, int start, int end);
 
 #endif
