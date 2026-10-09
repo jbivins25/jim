@@ -1,9 +1,11 @@
 #include "data.h"
 #include "row.h"
 #include "editor.h"
+#include "syntax.h"
 #include <string.h>
 
 int editorRowCxToRx(erow* row, int cx) {
+	if (row->tabs == 0) return cx;
 	int rx = 0;
 	for (int j = 0; j < cx; j++) {
 		if (row->chars[j] == '\t') rx += (JIM_TAB_STOP - 1) - (rx % JIM_TAB_STOP);
@@ -13,6 +15,7 @@ int editorRowCxToRx(erow* row, int cx) {
 }
 
 int editorRowRxToCx(erow *row, int rx) {
+	if (row->tabs == 0) return rx;
 	int cur_rx = 0;
 	int cx;
 	for (cx = 0; cx < row->size; cx++) {
@@ -22,30 +25,6 @@ int editorRowRxToCx(erow *row, int rx) {
 		if (cur_rx > rx) return cx;
 	}
 	return cx;
-}
-
-void editorUpdateRow(erow *row, editorSyntax* syn, char mode) {
-	int tabs = 0;
-	int j;
-	for (j = 0; j < row->size; j++) {
-		if (row->chars[j] == '\t') tabs++;
-	}
-	free(row->render);
-	row->render = malloc(row->size + tabs*(JIM_TAB_STOP - 1) + 1);	
-	int idx = 0;
-	for (j = 0; j < row->size; j++) {
-		if (row->chars[j] == '\t') {
-			row->render[idx++] = ' ';
-			while (idx % JIM_TAB_STOP != 0) row->render[idx++] = ' ';
-		}
-		else {
-			row->render[idx++] = row->chars[j];
-		}
-	}
-	row->render[idx] = '\0';
-	row->rsize = idx;
-	int ind = row-E.row;
-	editorUpdateSyntax(row, ind, syn, mode);
 }
 
 void editorInsertRow(int at, char *s, size_t len) {
@@ -60,24 +39,19 @@ void editorInsertRow(int at, char *s, size_t len) {
 	E.row[at].chars = malloc(len + 1);
 	memcpy(E.row[at].chars, s, len);
 	E.row[at].chars[len] = '\0';
-	E.row[at].rsize = 0; //This line and next are for rendering tabs and extra characters
-	E.row[at].render = NULL;
-	E.row[at].hl = NULL;
+	E.row[at].tabs = 0;
+	for (size_t i = 0; i < len+1; i++) if (s[i] == '\t') E.row[at].tabs++;
 	E.row[at].hl_open_comment = 0;
 	E.row[at].hl_open_string = 0;
-	editorUpdateRow(&E.row[at], &E.syn, NORMAL);
+	editorUpdateSyntax(&E.row[at], at, &E.syn, NORMAL);
 	E.numrows++;
 	E.dirty = 1;
 }
 
 void editorFreeRow(erow *row) {
 	if (row == NULL) return;
-	free(row->render);
 	free(row->chars);
-	free(row->hl);
-	row->render = NULL;
 	row->chars = NULL;
-	row->hl = NULL;
 }
 
 void editorDelRow(int at) {
@@ -104,7 +78,9 @@ void editorRowInsertChar(erow *row, int at, int c) {
 	memmove(&row->chars[at+1], &row->chars[at], row->size - at + 1);
 	row->size++;
 	row->chars[at] = c;
-	editorUpdateRow(row, &E.syn, NORMAL);
+	if (c == '\t') row->tabs++;
+	int ind = row - E.row;
+	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
 }
 
@@ -114,7 +90,8 @@ void editorRowInsertChars(erow* row, int at, char* text, size_t len) {
 	memmove(&row->chars[at+len], &row->chars[at], row->size - at + 1);
 	memcpy(&row->chars[at], text, len);
 	row->size += len;
-	editorUpdateRow(row, &E.syn, NORMAL);
+	int ind = row - E.row;
+	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
 }
 
@@ -123,15 +100,18 @@ void editorRowAppendString(erow* row, char* s, size_t len) {
 	memcpy(&row->chars[row->size], s, len);
 	row->size += len;
 	row->chars[row->size] = '\0';
-	editorUpdateRow(row, &E.syn, NORMAL);
+	int ind = row - E.row;
+	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
 }
 
 void editorRowDelChar(erow *row, int at) {
 	if (at < 0 || at >= row->size) return;
+	if (row->chars[at] == '\t') row->tabs--;
 	memmove(&row->chars[at], &row->chars[at + 1], row->size - at); //Just shift row over from at+1 onto at
 	row->size--;
-	editorUpdateRow(row, &E.syn, NORMAL);
+	int ind = row - E.row;
+	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
 }
 
@@ -139,6 +119,7 @@ void editorRowDelRange(erow* row, int start, int end) {
 	if (start < 0 || end > row->size) return;
 	memmove(&row->chars[start], &row->chars[end], row->size - end);
 	row->size -= (end-start);
-	editorUpdateRow(row, &E.syn, NORMAL);
+	int ind = row - E.row;
+	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
 }

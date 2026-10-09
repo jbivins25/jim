@@ -117,12 +117,18 @@ void drawWindow(struct abuf* ab, int y) {
 	}
 	else if ( (y-1 + E.win.yOffset) < E.win.numrows) {
 		int filerow = y-1 + E.win.yOffset;
-		int len = E.win.row[filerow].rsize - E.win.xOffset;
+
+		unsigned char* framebuf = malloc(E.win.row[filerow].size);
+		editorGetSyntax(&E.win.row[filerow], filerow, framebuf, E.win.row[filerow].size, &E.win.syn);
+		char* chars = E.win.row[filerow].chars;
+
+		int len = E.win.row[filerow].size - E.win.xOffset;
 		if (len < 0) len = 0;
 		if (len > E.win.screencols-1) len = E.win.screencols-1;
 		int curr_color = DEF_FG;
+		int idx = 0;
 		for (int j = 0; j < len; j++) {
-			int color = editorSyntaxToColor(E.win.row[filerow].hl[E.win.xOffset + j]);
+			int color = editorSyntaxToColor(framebuf[E.win.xOffset + j]);
 			if (curr_color != color) {
 				char buf[16];
 				int hlen;
@@ -131,8 +137,15 @@ void drawWindow(struct abuf* ab, int y) {
 				abAppend(ab, buf, hlen);
 				curr_color = color;
 			}
-			abAppend(ab, &E.win.row[filerow].render[E.win.xOffset + j], 1);
+			if (chars[E.win.xOffset+j] == '\t') {
+				abAppend(ab, " ", 1);
+				idx++;
+				while (( idx ) % JIM_TAB_STOP != 0 && idx < E.win.screencols-1) { abAppend(ab, " ", 1); idx++; }
+			}
+			else { abAppend(ab, &chars[E.win.xOffset + j], 1); idx++; }
+			if (idx >= E.win.screencols-1) break;
 		}
+		free(framebuf);
 	}
 	if (E.win.location == 0) {
 		snprintf(buf, sizeof(buf), "\x1b[%d;%dH", y+1, E.win.screencols);
@@ -162,12 +175,10 @@ int windowAddRow(char* text, int row, size_t len) {
 	E.win.row[row].chars = malloc(len + 1);
 	memcpy(E.win.row[row].chars, text, len);
 	E.win.row[row].chars[len] = '\0';
-	E.win.row[row].rsize = 0;
-	E.win.row[row].render = NULL;
-	E.win.row[row].hl = NULL;
+	E.win.row[row].tabs = 0;
 	E.win.row[row].hl_open_comment = 0;
 	E.win.row[row].hl_open_string = 0;
-	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
+	editorUpdateSyntax(&E.win.row[row], row, &E.win.syn, WINDOW);
 	E.win.numrows++;
 	THREAD_UNLOCK(T.windowThreadLock);
 	return 0;
@@ -188,19 +199,18 @@ void windowSetRow(char* text, int row, size_t len) {
 	editorFreeRow(&E.win.row[row]);
 	E.win.row[row].size = len;
 	E.win.row[row].chars = malloc(len+1);
+	for (size_t i = 0; i < len; i++) if (text[i] == '\t') E.win.row[row].tabs++;
 	memcpy(E.win.row[row].chars, text, len);
 	E.win.row[row].chars[len] = '\0';
-	E.win.row[row].rsize = 0;
-	E.win.row[row].render = NULL;
-	E.win.row[row].hl = NULL;
-	editorUpdateRow(&E.win.row[row], &E.win.syn, WINDOW);
+	editorUpdateSyntax(&E.win.row[row], row, &E.win.syn, WINDOW);
 	THREAD_UNLOCK(T.windowThreadLock);
 }
 
-int maxLineSize() {
+int maxLineSize(int from, int to) {
 	int max = 0;
-	for ( int i = E.win.yOffset; i < (E.win.numrows <= E.win.screenrows-1 + E.win.yOffset ? E.win.numrows : E.win.screenrows-1 + E.win.yOffset); i++ ) {
-		if (E.win.row[i].rsize > max) max = E.win.row[i].rsize;
+	for ( int i = from; i < to; i++ ) {
+		int temp = editorRowCxToRx(&E.win.row[i], E.win.row[i].size);
+		if (temp > max) max = temp;
 	}
 	return max;
 }
@@ -224,7 +234,7 @@ void windowPageScroll(int c) {
 			break;
 
 		case ARROW_RIGHT:
-			if (E.win.xOffset + E.win.screencols-1 <= maxLineSize()) E.win.xOffset++;
+			if (E.win.xOffset + E.win.screencols-1 <= maxLineSize(E.win.yOffset, E.win.yOffset + E.win.screenrows > E.win.screenrows ? E.win.screenrows : E.win.yOffset + E.win.screenrows)) E.win.xOffset++;
 
 		default:
 			break;

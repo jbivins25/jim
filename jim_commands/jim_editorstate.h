@@ -57,7 +57,7 @@ void printEditorState() {
 	size_t len = snprintf(buf, sizeof(buf), "Editor cursor: cx:%d cy:%d rx:%d", E.cx, E.cy, E.rx);
 	if (E.win.numrows < 1) windowAddRow(buf, E.win.numrows, len);
 	else windowSetRow(buf, 0, len);
-	len = snprintf(buf, sizeof(buf), "Line data: size:%d rsize:%d", E.cy < E.numrows ? E.row[E.cy].size : 0, E.cy < E.numrows ? E.row[E.cy].rsize : 0);
+	len = snprintf(buf, sizeof(buf), "Line data: size:%d", E.cy < E.numrows ? E.row[E.cy].size : 0);
 	if (E.win.numrows < 2) windowAddRow(buf, E.win.numrows, len);
 	else windowSetRow(buf, 1, len);
 	len = snprintf(buf, sizeof(buf), "Screensize: R%d;C%d", E.screenrows,E.screencols);	

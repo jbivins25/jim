@@ -5,6 +5,7 @@
 #include "ur.h"
 #include "palette.h"
 #include "compat.h"
+#include "syntax.h"
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -109,7 +110,9 @@ void editorSelectKeypress(int c) {
 
 	case CTRL_KEY('q'):
 	    if (E.dirty && quit_times > 0) {
+		THREAD_LOCK(T.setMessageLock);
 		editorSetStatusMessage("Warning: Unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+		THREAD_UNLOCK(T.setMessageLock);
 		quit_times--;
 		return;
 	    }
@@ -258,7 +261,7 @@ void editorInsertCharRange(char* text, size_t len) {
 		else sec = 0;
 		if (E.urType == DELETE_UR || sec > UNDO_TIMEOUT || E.urType == NULL_UR) {
 			addNode(WRITE, E.cx, E.cy, text[0]);
-			appendUrCharRange(text, len-1, E.cx+len, E.cy);
+			appendUrCharRange(text+1, len-1, E.cx+len, E.cy);
 		}
 		else {
 			appendUrCharRange(text, len, E.cx+len, E.cy);
@@ -296,7 +299,8 @@ void editorInsertNewline() {
 		row = &E.row[E.cy];
 		row->size = E.cx;
 		row->chars[row->size] = '\0';
-		editorUpdateRow(row, &E.syn, NORMAL);
+		int ind = row - E.row;
+		editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	}
 	E.cy++;
 	E.cx = 0;
@@ -368,7 +372,8 @@ void editorDelRowsRange(int startrow, int endrow, int startrow_x, int endrow_x) 
 	if (startrow < 0 || endrow >= E.numrows) return;
 	if (endrow < startrow) return;
 	if (startrow_x < 0 || startrow_x > E.row[startrow].size) return;
-	if (endrow_x < 0 || endrow_x > E.row[startrow].size) return;
+	if (endrow_x < 0 || endrow_x > E.row[endrow].size) return;
+	if (startrow == endrow && startrow_x >= endrow_x) return;
 	long sec, nsec;
 	if (E.urMode) {
 		size_t len = 0;
@@ -381,7 +386,7 @@ void editorDelRowsRange(int startrow, int endrow, int startrow_x, int endrow_x) 
 		char* text = malloc(len);
 		size_t written = 0;
 		for (int i = endrow; i >= startrow; i--) {
-			if (i == endrow && i == startrow) { revmemcpy(text, E.row[i].chars, len); continue; }
+			if (i == endrow && i == startrow) { revmemcpy(text, E.row[i].chars + startrow_x, len); continue; }
 			else if (i == endrow) { revmemcpy(text + written, E.row[i].chars, endrow_x + 1); written += endrow_x + 1; } 
 			else if (i == startrow) { revmemcpy(text + written, E.row[i].chars + startrow_x, E.row[i].size - startrow_x); continue; }
 			else { revmemcpy(text + written, E.row[i].chars, E.row[i].size); written += E.row[i].size; }
@@ -417,177 +422,3 @@ void editorDelRowsRange(int startrow, int endrow, int startrow_x, int endrow_x) 
 	E.sticky = editorRowCxToRx(&E.row[E.cy], E.cx);	
 }
 
-static int isSeparator(int c) {
-	return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[]{};:", c) != NULL;
-}
-
-static int isHex(int c) {
-	return strchr("0123456789abcdefABCDEF", c) != NULL;
-}
-
-static int isBin(int c) {
-	return c == '0' || c == '1';
-}
-
-void editorUpdateSyntax(erow *row, int rowind, editorSyntax* syn, char mode) {
-	int changed = 0;
-	int numrows = (mode == WINDOW) ? E.win.numrows : E.numrows;
-	int offset = (mode == WINDOW) ? E.win.yOffset : E.rowoff;
-	int screenrows = (mode == WINDOW) ? E.win.screenrows : E.screenrows;
-	int hexNum = 0;
-	int binNum = 0;
-	do {
-		if (changed) { row++; rowind++; }
-		changed = 0;
-		row->hl = realloc(row->hl, row->rsize);
-		memset(row->hl, NORM, row->rsize);
-		if (syn->filetype == NULL) return;
-
-		size_t slc_len = syn->slComment ? strlen(syn->slComment) : 0;
-		size_t mlcs_len = syn->mlCommentStart ? strlen(syn->mlCommentStart) : 0;
-		size_t mlce_len = syn->mlCommentEnd ? strlen(syn->mlCommentEnd) : 0;	
-	
-		int in_comment = (rowind > 0 && (row-1)->hl_open_comment);
-		int in_string = (rowind > 0 && (row-1)->hl_open_string);
-		int prev_sep = 1;
-	
-		for (int i = 0; i < row->rsize; i++) {
-			unsigned char c = (unsigned char)row->render[i];
-			unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : NORM;
-	
-			if (slc_len && !in_comment && !in_string) {
-				if (!strncmp(&row->render[i],syn->slComment,slc_len)) {
-					memset(&row->hl[i], COMMENT, row->rsize - i);
-					break;
-				}
-			}
-	
-			if (mlcs_len && mlce_len && !in_string) {
-				if (in_comment) {
-					row->hl[i] = COMMENT;
-					if (!strncmp(&row->render[i], syn->mlCommentEnd, mlce_len)) {
-						memset(&row->hl[i], COMMENT, mlce_len);
-						i += mlce_len-1;
-						in_comment = 0;
-						prev_sep = 1;
-					}
-					continue;
-				}
-				else {
-					if (!strncmp(&row->render[i], syn->mlCommentStart, mlcs_len)) {
-						memset(&row->hl[i], COMMENT, mlcs_len);
-						i += mlcs_len-1;
-						in_comment = 1;
-						continue;
-					}
-				}
-			}	
-
-			if (syn->flags & HL_STRING) {
-				if (in_string) {
-					row->hl[i] = STRING;
-					if (c == '\\' && i + 1 < row->rsize) {
-						row->hl[i+1] = STRING;
-						i++;
-						continue;
-					}
-					if (i + 1 == row->rsize && (syn->flags & HL_ML_STRINGS || c == '\\')) row->hl_open_string = 1;
-					if (c == in_string) {
-						in_string = 0;
-						row->hl_open_string = 0;
-					}
-					prev_sep = 1;
-					continue;
-				}
-				else {
-					if (c == '"' || c == '\'') {
-						in_string = c;
-						row->hl[i] = STRING;
-						continue;
-					}
-				}
-			}
-	
-			if (syn->flags & HL_NUM) {
-				if (hexNum) {
-					if (!isHex(c)) { hexNum = 0; prev_sep = 0; continue; } 
-					row->hl[i] = NUMBER;
-					prev_sep = 0;
-					continue;
-				}
-				if (binNum) {
-					if (!isBin(c)) { binNum = 0; prev_sep = 0; continue; }
-					row->hl[i] = NUMBER;
-					prev_sep = 0;
-					continue;
-				}
-				if ((isdigit(c) && (prev_sep || prev_hl == NUMBER)) || (c == '.' && prev_hl == NUMBER) || ((c == 'f' ||c == 'b' || c == 'x') && prev_hl == NUMBER) || (isHex(c) && hexNum)) {
-					if (c == 'x') hexNum = 1;
-					else if (c == 'b') binNum = 1; 
-					row->hl[i] = NUMBER;
-					prev_sep = 0;
-					continue;
-				}
-			}
-			
-			if (prev_sep) {
-				int found = 0;
-				for (int j = 0; j < syn->keywordCount; j++) {
-					int klen = syn->keywordLen[j];
-					if (!strncmp(&row->render[i],syn->keywords[j],klen) && (i+klen <= row->rsize && isSeparator(row->render[i+klen]))) {
-						memset(&row->hl[i], KEYWORD, klen);
-						found = 1;
-						i += klen-1;
-						prev_sep = 0;
-						break;
-					}
-				}
-				if (found) continue;
-				for (int j = 0; j < syn->typeCount; j++) {
-					int tlen = syn->typeLen[j];
-					if(!strncmp(&row->render[i],syn->types[j],tlen) && (i+tlen <= row->rsize && isSeparator(row->render[i+tlen]))) {
-						memset(&row->hl[i], TYPE, tlen);
-						found = 1;
-						i += tlen-1;
-						prev_sep = 0;
-						break;
-					}
-				}
-				if (found) continue;
-			}
-
-			if (hexNum && !isHex(c)) hexNum = 0;
-			if (binNum && !(c == '0' || c == '1')) binNum = 0;
-			prev_sep = isSeparator(c);		
-		}
-		if ((row->hl_open_comment != in_comment && syn->flags & HL_ML_CM) || (row->hl_open_string != in_string && syn->flags & HL_ML_STRINGS)) {
-			changed = 1;
-			if ((row->hl_open_comment != in_comment && syn->flags & HL_ML_CM)) row->hl_open_comment = in_comment;
-			if ((row->hl_open_string != in_string && syn->flags & HL_ML_STRINGS)) row->hl_open_string = in_string;
-		}
-		if (rowind - offset < screenrows && rowind - offset >= 0) markRedrawRow((rowind - offset), (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF);
-	} while (changed && (rowind + 1 < numrows));
-}
-
-int editorSyntaxToColor(int hl) {
-	if (E.colorful) {
-		switch (hl) {
-			case COMMENT: return CL_COMMENT;
-			case MATCH: return CL_MATCH;
-			case TYPE: return CL_TYPE;
-			case KEYWORD: return CL_KEYWORD;
-			case STRING: return CL_STRING;
-			case NUMBER: return CL_NUMBER;
-			default: return 97;
-		}
-	}	
-	switch (hl) {
-		case COMMENT: return 36;
-		case MATCH: return 35;
-		case TYPE: return 34;
-		case KEYWORD: return 33;
-		case STRING: return 32;
-		case NUMBER: return 31;
-		default: return 97;
-	}
-}

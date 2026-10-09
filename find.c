@@ -35,17 +35,18 @@ void editorFindCallback(char* query, int key) {
 		else if (current == numrows) current = 0;
 
 		erow* row = (E.mode == NORMAL) ? &E.row[current] : &E.win.row[current];
-		char *match = strstr(row->render, query);
+		char *match = strstr(row->chars, query);
 		if (match) {
 			last_match = current;
 			if (E.mode == NORMAL) {
 				E.cy = current;
-				E.cx = editorRowRxToCx(row, match - row->render);
+				E.cx = editorRowRxToCx(row, match - row->chars);
 				E.rowoff = E.numrows;
+				markRedraw(0, E.screenrows, REDRAW_DEF);
 			}
 			else {
 				E.win.yOffset = current;
-				E.win.xOffset = (match+len - row->render < E.win.screencols) ? 0 : match - row->render;
+				E.win.xOffset = (match+len - row->chars < E.win.screencols) ? 0 : match - row->chars;
 				markRedraw(0, E.win.screenrows, REDRAW_WIN);
 			}
 			break;

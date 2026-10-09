@@ -230,7 +230,7 @@ void drawTree() {
 	if (2*depth > E.win.screenrows) redraw = E.win.screenrows;
 	else redraw = 2*depth;
 	markRedraw(0, redraw, REDRAW_WIN);
-	E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
+	//E.win.row[hlght_row].hl[hlght_col] = KEYWORD;
 }
 
 void treeProcessKey(int c) {

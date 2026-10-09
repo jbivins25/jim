@@ -82,13 +82,11 @@ enum urType {
 };
 
 typedef struct erow {
-	int size;
-	int rsize;
 	char* chars;
-	char* render;
-	unsigned char* hl;
-	int hl_open_comment;
-	int hl_open_string;
+	int size;
+	char hl_open_comment;
+	char hl_open_string;
+	unsigned short tabs;
 } erow;
 
 typedef void (*winHandler) (int c);
@@ -102,34 +100,34 @@ typedef struct {
 	char* slComment;
 	char* mlCommentStart;
 	char* mlCommentEnd;
-	int keywordCount;
-	int typeCount;
+	unsigned short keywordCount;
+	unsigned short typeCount;
 	int flags;
 } editorSyntax;
 
 typedef struct {
+	winHandler handler;
+	erow* row;
+	char* header;
+	editorSyntax syn;
+	int divider;
+	int numrows;
 	char active, location, threadOwned, setCallback; 
 	int minCols, screencols, screenrows, slot;
 	unsigned int uniqueId;
 	int xOffset, yOffset;
-	winHandler handler;
-	erow* row;
-	editorSyntax syn;
-	int divider;
-	int numrows;
-	char* header;
 } windowConfig;
 
 typedef struct urBlock {
-	char type;
-	int start[2];
-	int end[2];
-	int length;
-	int childlen;
 	char* chars;
 	struct urBlock* parent;
 	struct urBlock** children;
 	struct timespec timestamp;
+	int start[2];
+	int end[2];
+	int length;
+	int childlen;
+	char type;
 } urBlock;
 
 typedef struct {
@@ -149,18 +147,9 @@ struct editorConfig {
 	char* cpbuffer;
 	erow* row;
 	void (*keypressCallback)();
-	char dirty;
-	char mode;
-	char linenum;
-	char relative;
 	char *filename;
 	char statusmsg[80];
 	time_t statusmsg_time;
-	#ifndef _WIN32
-	struct termios orig_termios;
-	#else
-	DWORD orig_termios;
-	#endif
 	windowConfig win;
 	editorSyntax syn;
 	urTree tree;
@@ -169,6 +158,15 @@ struct editorConfig {
 	int capacity;
 	char urType;
 	char urMode;
+	char dirty;
+	char mode;
+	char linenum;
+	char relative;
+	#ifndef _WIN32
+	struct termios orig_termios;
+	#else
+	DWORD orig_termios;
+	#endif
 };
 
 //Editor Thread Definitions

@@ -13,7 +13,5 @@ void editorInsertCharRange(char* text, size_t size);
 void editorInsertNewline();
 void editorDelChar();
 void editorDelRowsRange(int startrow, int endrow, int startrow_x, int endrow_x);
-void editorUpdateSyntax(erow *row, int rowind, editorSyntax* syn, char mode);
-int editorSyntaxToColor(int hl);
 
 #endif
