@@ -40,7 +40,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 	memcpy(E.row[at].chars, s, len);
 	E.row[at].chars[len] = '\0';
 	E.row[at].tabs = 0;
-	for (size_t i = 0; i < len+1; i++) if (s[i] == '\t') E.row[at].tabs++;
+	for (size_t i = 0; i < len; i++) if (s[i] == '\t') E.row[at].tabs++;
 	E.row[at].hl_open_comment = 0;
 	E.row[at].hl_open_string = 0;
 	editorUpdateSyntax(&E.row[at], at, &E.syn, NORMAL);
@@ -90,6 +90,7 @@ void editorRowInsertChars(erow* row, int at, char* text, size_t len) {
 	memmove(&row->chars[at+len], &row->chars[at], row->size - at + 1);
 	memcpy(&row->chars[at], text, len);
 	row->size += len;
+	for (size_t i = 0; i < len; i++) if (text[i] == '\t') row->tabs++;
 	int ind = row - E.row;
 	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
@@ -100,6 +101,7 @@ void editorRowAppendString(erow* row, char* s, size_t len) {
 	memcpy(&row->chars[row->size], s, len);
 	row->size += len;
 	row->chars[row->size] = '\0';
+	for (size_t i = 0; i < len; i++) if (s[i] == '\t') row->tabs++;
 	int ind = row - E.row;
 	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;
@@ -117,6 +119,7 @@ void editorRowDelChar(erow *row, int at) {
 
 void editorRowDelRange(erow* row, int start, int end) {
 	if (start < 0 || end > row->size) return;
+	for (int i = start; i < end; i++) if (row->chars[i] == '\t') row->tabs--;
 	memmove(&row->chars[start], &row->chars[end], row->size - end);
 	row->size -= (end-start);
 	int ind = row - E.row;

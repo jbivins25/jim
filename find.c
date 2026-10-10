@@ -12,6 +12,7 @@ void editorFindCallback(char* query, int key) {
 	if (key == '\r' || key == '\x1b') {
 		last_match = -1;
 		direction = 1;
+		markRedraw(0, E.win.screenrows, E.mode == NORMAL ? REDRAW_DEF : REDRAW_WIN);
 		return;
 	}
 	else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
@@ -40,9 +41,8 @@ void editorFindCallback(char* query, int key) {
 			last_match = current;
 			if (E.mode == NORMAL) {
 				E.cy = current;
-				E.cx = editorRowRxToCx(row, match - row->chars);
+				E.cx = match - row->chars;
 				E.rowoff = E.numrows;
-				markRedraw(0, E.screenrows, REDRAW_DEF);
 			}
 			else {
 				E.win.yOffset = current;

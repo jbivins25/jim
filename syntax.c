@@ -37,7 +37,7 @@ void loadSyntax(const char* filename, editorSyntax* syn) {
 	getline(&line, &cap, f);
 	if (!strcmp(line, "JIMSYN")) return;
 	getline(&line, &cap, f);
-	sscanf(line, "%hd %hd", &syn->keywordCount, &syn->typeCount);
+	sscanf(line, "%hu %hu", &syn->keywordCount, &syn->typeCount);
 	syn->keywords = malloc(sizeof(char*)*syn->keywordCount);
 	syn->keywordLen = malloc(sizeof(char)*syn->keywordCount);
 	char* line_t;
@@ -173,8 +173,10 @@ void editorUpdateSyntax(erow *row, int rowind, editorSyntax* syn, char mode) {
 			}
 
 		}
-			row->hl_open_comment = in_comment;
-			row->hl_open_string = in_string;
+
+		if (row->hl_open_comment != in_comment || row->hl_open_string != in_string) changed = 1;
+		row->hl_open_comment = in_comment;
+		row->hl_open_string = in_string;
 		if (rowind - offset < screenrows && rowind - offset >= 0) markRedrawRow((rowind - offset), (mode == WINDOW) ? REDRAW_WIN : REDRAW_DEF);
 	} while (changed && (rowind + 1 < numrows));
 }

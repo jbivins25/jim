@@ -7,6 +7,7 @@
 #include "syntax.h"
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "compat.h"
 #include <stdlib.h>
 
@@ -142,6 +143,18 @@ void drawWindow(struct abuf* ab, int y) {
 				idx++;
 				while (( idx ) % JIM_TAB_STOP != 0 && idx < E.win.screencols-1) { abAppend(ab, " ", 1); idx++; }
 			}
+			else if (iscntrl(chars[E.coloff + j])) {
+				char sym = (chars[E.coloff + j] <= 26) ? '@' + chars[E.coloff + j] : '?';
+				abAppend(ab, "\x1b[7m", 4);
+				abAppend(ab, &sym, 1);
+				abAppend(ab, "\x1b[m", 3);
+				char buf[16];
+				int clen;
+				if (E.colorful == 0 || color == DEF_FG) clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+				else clen = snprintf(buf, sizeof(buf), "\x1b[38;5;%dm", color);
+				abAppend(ab, buf, clen);
+				idx++;
+			}
 			else { abAppend(ab, &chars[E.win.xOffset + j], 1); idx++; }
 			if (idx >= E.win.screencols-1) break;
 		}
@@ -176,6 +189,7 @@ int windowAddRow(char* text, int row, size_t len) {
 	memcpy(E.win.row[row].chars, text, len);
 	E.win.row[row].chars[len] = '\0';
 	E.win.row[row].tabs = 0;
+	for (size_t i = 0; i < len; i++) if (text[i] == '\t') E.win.row[row].tabs++;
 	E.win.row[row].hl_open_comment = 0;
 	E.win.row[row].hl_open_string = 0;
 	editorUpdateSyntax(&E.win.row[row], row, &E.win.syn, WINDOW);
@@ -199,6 +213,7 @@ void windowSetRow(char* text, int row, size_t len) {
 	editorFreeRow(&E.win.row[row]);
 	E.win.row[row].size = len;
 	E.win.row[row].chars = malloc(len+1);
+	E.win.row[row].tabs = 0;
 	for (size_t i = 0; i < len; i++) if (text[i] == '\t') E.win.row[row].tabs++;
 	memcpy(E.win.row[row].chars, text, len);
 	E.win.row[row].chars[len] = '\0';

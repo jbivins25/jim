@@ -15,17 +15,11 @@ int jim_dumpwin(const int argc, const char* args[]) {
 	FILE* fptr = fopen("dumpwin.txt","w");
 	fprintf(fptr,"Numrows: %d\n", E.win.numrows);
 	fprintf(fptr,"Contents:\n");
-	int rsize = 0;
-	int temp;
-	char* render = NULL;
 	for (int i = 0; i < E.win.numrows; i++) {
-		temp = editorGetRenderSize(&E.win.row[i], 
-		if (rsize < temp) render = realloc(render, temp+1);
-		rsize = temp;
-		editorGetRender(&E.win.row[i], render, rsize+1);
+		
 		fprintf(fptr,"%d: ", i);
-		for (int j = 0; j < rsize; j++) {
-			fprintf(fptr,"%c",render[j]);
+		for (int j = 0; j < E.win.row[i].size; j++) {
+			fprintf(fptr,"%c",E.win.row.chars[j]);
 		}
 		fprintf(fptr,"\n");
 	}

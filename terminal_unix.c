@@ -235,6 +235,6 @@ void win_sighandler(int sig) {
 		}
 		redrawWholeScreen = 1; //Have to just change and hope for the best to prevent deadlock
 		if (clearWinFlag) write(eventPipe[1], "d", 1);
-		else write(eventPipe[1], "r", 1);
+		else write(eventPipe[1], "w", 1);
 	}
 }

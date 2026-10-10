@@ -120,6 +120,7 @@ void editorDrawRows(struct abuf* ab) {
 				}
 				else {
 					editorGetSyntax(&E.row[filerow], filerow, framebuf, size, &E.syn);
+					int offset = editorRowRxToCx(&E.row[filerow], E.coloff); //Since we no longer have constant rendered text, E.coloff could be referencing a different char than intended
 
 					if (E.linenum) {
 						int len;
@@ -132,14 +133,14 @@ void editorDrawRows(struct abuf* ab) {
 					}
 
 					if (filerow > sel_sy && filerow < sel_ey) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
-					if (filerow == sel_ey && sel_sy != sel_ey && E.coloff <= highlightendx) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
+					if (filerow == sel_ey && sel_sy != sel_ey && offset <= highlightendx) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 					char* chars = E.row[filerow].chars;
-					int len = E.row[filerow].size - E.coloff;
+					int len = E.row[filerow].size - offset;
 					if (len < 0) len = 0;
 					if (len > E.screencols) len = E.screencols;
 					int current_color = DEF_FG; //default color
-					unsigned char* hl = &framebuf[E.coloff];
-					int idx = E.coloff;
+					unsigned char* hl = &framebuf[offset];
+					int idx = E.coloff; //Index to the "full rendered" row
 					for (int j = 0; j < len; j++) {
 						int color = editorSyntaxToColor(hl[j]);
 						if (filerow == sel_sy && j + E.coloff == highlightstartx) {
@@ -153,13 +154,13 @@ void editorDrawRows(struct abuf* ab) {
 							abAppend(ab, buf, hlen);
 							current_color = color;
 						}
-						if (chars[E.coloff + j] == '\t') {
+						if (chars[offset + j] == '\t') {
 							abAppend(ab, " ", 1);
 							idx++;
-							while (( idx ) % JIM_TAB_STOP != 0 && idx < E.screencols) { idx++; abAppend(ab, " ", 1); }
+							while (( idx ) % JIM_TAB_STOP != 0 && idx - E.coloff < E.screencols) { idx++; abAppend(ab, " ", 1); }
 						}
-						else if (iscntrl(chars[E.coloff + j])) {
-							char sym = (chars[E.coloff + j] <= 26) ? '@' + chars[E.coloff + j] : '?';
+						else if (iscntrl(chars[offset + j])) {
+							char sym = (chars[offset + j] <= 26) ? '@' + chars[offset + j] : '?';
 							abAppend(ab, "\x1b[7m", 4);
 							abAppend(ab, &sym, 1);
 							abAppend(ab, "\x1b[m", 3);
@@ -170,11 +171,11 @@ void editorDrawRows(struct abuf* ab) {
 							abAppend(ab, buf, clen);
 							idx++;
 						}
-						else { abAppend(ab, &chars[E.coloff + j], 1); idx++; }
-						if (filerow == sel_ey && j < len-1 && j + E.coloff == highlightendx) {
+						else { abAppend(ab, &chars[offset + j], 1); idx++; }
+						if (filerow == sel_ey && j < len-1 && j + offset == highlightendx) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
-						if (idx >= E.screencols) break;
+						if (idx - E.coloff >= E.screencols) break;
 					}
 					if (len == 0) abAppend(ab, &space, 1);
 				}
@@ -383,8 +384,8 @@ void editorMatchMark() {
 	char* currchars = row->chars;
 	int stack = 1;
 	int prevcy = E.cy;
-	unsigned char* buf = NULL;
-	int bufsize = 0;
+	unsigned char* buf = malloc(E.row[E.cy].size);
+	int bufsize = E.row[E.cy].size;
 	int temp;
 	while (stack > 0) {
 		if (E.cy != prevcy) {
@@ -637,7 +638,12 @@ void editorWaitEvent() {
 		int e = editorReadEvent();
 		switch(e) {
 			case('d'): //d for destroy window, sent through queue if it isn't safe to call clearWindow for deadlocking reasons
+				abAppend(&ab, "\x1b[2J", 4);
 				clearWindow();
+				break;
+			case('w'):
+				abAppend(&ab, "\x1b[2J", 4);
+				break;
 			default:
 				break;
 		}

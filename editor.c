@@ -298,6 +298,8 @@ void editorInsertNewline() {
 		editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
 		row = &E.row[E.cy];
 		row->size = E.cx;
+		row->tabs = 0;
+		for (int i = 0; i < row->size; i++) if (row->chars[i] == '\t') row->tabs++;
 		row->chars[row->size] = '\0';
 		int ind = row - E.row;
 		editorUpdateSyntax(row, ind, &E.syn, NORMAL);
