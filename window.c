@@ -143,8 +143,8 @@ void drawWindow(struct abuf* ab, int y) {
 				idx++;
 				while (( idx ) % JIM_TAB_STOP != 0 && idx < E.win.screencols-1) { abAppend(ab, " ", 1); idx++; }
 			}
-			else if (iscntrl(chars[E.coloff + j])) {
-				char sym = (chars[E.coloff + j] <= 26) ? '@' + chars[E.coloff + j] : '?';
+			else if (iscntrl(chars[E.win.xOffset + j])) {
+				char sym = (chars[E.win.xOffset + j] <= 26) ? '@' + chars[E.win.xOffset + j] : '?';
 				abAppend(ab, "\x1b[7m", 4);
 				abAppend(ab, &sym, 1);
 				abAppend(ab, "\x1b[m", 3);

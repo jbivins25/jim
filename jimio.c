@@ -40,6 +40,14 @@ void markRedrawAll() {
 	THREAD_UNLOCK(T.redrawLock);
 }
 
+static int editorGutterWidth(int filerow) {
+	if (!E.linenum) return 0;
+	int digit = 1;
+	while (filerow >= 10) { filerow /= 10; digit++; }
+	if (digit < 3) digit = 3;
+	return digit+1;
+}
+
 void editorScroll() {
 	int init_rowoff, init_coloff;
 	init_rowoff = E.rowoff;
@@ -54,11 +62,14 @@ void editorScroll() {
 	if (E.cy >= E.rowoff + E.screenrows) { //Scroll down
 		E.rowoff = E.cy - E.screenrows + 1;
 	}
+
+	int textcols = E.screenrows - editorGutterWidth(E.cy+1);
+
 	if (E.rx < E.coloff) { //Scroll left
 		E.coloff = E.rx;
 	}
-	if (E.rx >= E.coloff + E.screencols) { //Scroll right
-		E.coloff = E.rx - E.screencols + 1;
+	if (E.rx >= E.coloff + textcols) { //Scroll right
+		E.coloff = E.rx - textcols + 1;
 	}
 	if (E.rowoff != init_rowoff || E.coloff != init_coloff) {
 		markRedraw(0, E.screenrows, REDRAW_DEF);
@@ -85,8 +96,8 @@ void editorDrawRows(struct abuf* ab) {
 	}
 
 	int sel_sx = E.selected[SELECTED_STARTX], sel_sy = E.selected[SELECTED_STARTY], sel_ex = E.selected[SELECTED_ENDX], sel_ey = E.selected[SELECTED_ENDY];
-	int highlightstartx = sel_sx == -1 ? -1 : editorRowCxToRx(&E.row[sel_sy], sel_sx);
-	int highlightendx = sel_ex == -1 ? -1 : editorRowCxToRx(&E.row[sel_ey], sel_ex);
+	int highlightstartx = sel_sx == -1 ? -1 : sel_sx;
+	int highlightendx = sel_ex == -1 ? -1 : sel_ex;
 
 
 	int size = 0;
@@ -122,22 +133,25 @@ void editorDrawRows(struct abuf* ab) {
 					editorGetSyntax(&E.row[filerow], filerow, framebuf, size, &E.syn);
 					int offset = editorRowRxToCx(&E.row[filerow], E.coloff); //Since we no longer have constant rendered text, E.coloff could be referencing a different char than intended
 
+					int gutterSize = 0;
 					if (E.linenum) {
-						int len;
+						int linenumlen;
 						if (E.relative) {
 							int linenumber = (E.cy - filerow > 0) ? (E.cy - filerow) : (E.cy - filerow == 0) ? (filerow + 1) : (-1 * (E.cy - filerow));
-							len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
+							linenumlen = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
+							gutterSize = editorGutterWidth(linenumber);
 						}
-						else len = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG);
-						abAppend(ab, linenumbuf, len);
+						else { linenumlen = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG); editorGutterWidth(filerow+1); }
+						abAppend(ab, linenumbuf, linenumlen);
 					}
+					int screencols = E.screencols - gutterSize;
 
 					if (filerow > sel_sy && filerow < sel_ey) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
 					if (filerow == sel_ey && sel_sy != sel_ey && offset <= highlightendx) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 					char* chars = E.row[filerow].chars;
 					int len = E.row[filerow].size - offset;
 					if (len < 0) len = 0;
-					if (len > E.screencols) len = E.screencols;
+					if (len > screencols) len = screencols;
 					int current_color = DEF_FG; //default color
 					unsigned char* hl = &framebuf[offset];
 					int idx = E.coloff; //Index to the "full rendered" row
@@ -157,7 +171,7 @@ void editorDrawRows(struct abuf* ab) {
 						if (chars[offset + j] == '\t') {
 							abAppend(ab, " ", 1);
 							idx++;
-							while (( idx ) % JIM_TAB_STOP != 0 && idx - E.coloff < E.screencols) { idx++; abAppend(ab, " ", 1); }
+							while (( idx ) % JIM_TAB_STOP != 0 && idx - E.coloff < screencols) { idx++; abAppend(ab, " ", 1); }
 						}
 						else if (iscntrl(chars[offset + j])) {
 							char sym = (chars[offset + j] <= 26) ? '@' + chars[offset + j] : '?';
@@ -175,7 +189,7 @@ void editorDrawRows(struct abuf* ab) {
 						if (filerow == sel_ey && j < len-1 && j + offset == highlightendx) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
-						if (idx - E.coloff >= E.screencols) break;
+						if (idx - E.coloff >= screencols) break;
 					}
 					if (len == 0) abAppend(ab, &space, 1);
 				}
@@ -386,6 +400,7 @@ void editorMatchMark() {
 	int prevcy = E.cy;
 	unsigned char* buf = malloc(E.row[E.cy].size);
 	int bufsize = E.row[E.cy].size;
+	editorGetSyntax(&E.row[E.cy], E.cy, buf, bufsize, &E.syn);
 	int temp;
 	while (stack > 0) {
 		if (E.cy != prevcy) {
@@ -402,19 +417,20 @@ void editorMatchMark() {
 		if (E.cx >= E.row[E.cy].size && E.cy < E.numrows-1) {
 			E.cx = 0;
 			while (++E.cy < E.numrows && E.row[E.cy].size == 0);
-			if (E.cy == E.numrows) return;
+			if (E.cy == E.numrows) { free(buf); return; }
 			row = &E.row[E.cy];
 			currchars = row->chars;
 		}
 		else if (E.cx < 0 && E.cy > 0) {
 			while (--E.cy > 0 && E.row[E.cy].size == 0);
-			if (E.cy == 0 && E.row[E.cy].size == 0) { E.cx = 0; return;}
+			if (E.cy == 0 && E.row[E.cy].size == 0) { E.cx = 0; free(buf); return;}
 			E.cx = E.row[E.cy].size - 1;
 			row = &E.row[E.cy];
 			currchars = row->chars;
 		} 
 		else if (E.cx < 0 || E.cx >= E.row[E.cy].size) {
 			if (E.cx < 0) E.cx = 0;
+			free(buf);
 			return;
 		}
 

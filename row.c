@@ -122,6 +122,7 @@ void editorRowDelRange(erow* row, int start, int end) {
 	for (int i = start; i < end; i++) if (row->chars[i] == '\t') row->tabs--;
 	memmove(&row->chars[start], &row->chars[end], row->size - end);
 	row->size -= (end-start);
+	row->chars[row->size] = '\0';
 	int ind = row - E.row;
 	editorUpdateSyntax(row, ind, &E.syn, NORMAL);
 	E.dirty = 1;

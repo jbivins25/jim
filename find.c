@@ -12,7 +12,17 @@ void editorFindCallback(char* query, int key) {
 	if (key == '\r' || key == '\x1b') {
 		last_match = -1;
 		direction = 1;
-		markRedraw(0, E.win.screenrows, E.mode == NORMAL ? REDRAW_DEF : REDRAW_WIN);
+		int rows;
+		int screen;
+		if (E.mode == NORMAL) {
+			rows = E.screenrows;
+			screen = REDRAW_DEF;
+		}
+		else {
+			rows = E.win.screenrows;
+			screen = REDRAW_WIN;
+		}
+		markRedraw(0, rows, screen);
 		return;
 	}
 	else if (key == ARROW_RIGHT || key == ARROW_DOWN) {
