@@ -63,7 +63,7 @@ void editorScroll() {
 		E.rowoff = E.cy - E.screenrows + 1;
 	}
 
-	int textcols = E.screenrows - editorGutterWidth(E.cy+1);
+	int textcols = E.screencols - editorGutterWidth(E.cy+1);
 
 	if (E.rx < E.coloff) { //Scroll left
 		E.coloff = E.rx;
@@ -78,14 +78,9 @@ void editorScroll() {
 
 void editorDrawRows(struct abuf* ab) {
 	char buf[32];
+	static char def_fg[8], def_bg[8], hl_bg[8];
+	static int def_fg_len, def_bg_len, hl_bg_len;
 	static int set = 1;
-	static char def_fg[8];
-	static int def_fg_len;
-	static char def_bg[8];
-	static int def_bg_len;
-	static char hl_bg[8];
-	static int hl_bg_len;
-	static const char space = ' ';
 	static const char* linenumform = "\x1b[%dm%3d \x1b[%dm";
 	static char linenumbuf[32];
 	if (set) {
@@ -96,9 +91,6 @@ void editorDrawRows(struct abuf* ab) {
 	}
 
 	int sel_sx = E.selected[SELECTED_STARTX], sel_sy = E.selected[SELECTED_STARTY], sel_ex = E.selected[SELECTED_ENDX], sel_ey = E.selected[SELECTED_ENDY];
-	int highlightstartx = sel_sx == -1 ? -1 : sel_sx;
-	int highlightendx = sel_ex == -1 ? -1 : sel_ex;
-
 
 	int size = 0;
 	for (int i = 0; i < E.screenrows; i++) {
@@ -141,13 +133,13 @@ void editorDrawRows(struct abuf* ab) {
 							linenumlen = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, linenumber, DEF_FG); 
 							gutterSize = editorGutterWidth(linenumber);
 						}
-						else { linenumlen = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG); editorGutterWidth(filerow+1); }
+						else { linenumlen = snprintf(linenumbuf, sizeof(linenumbuf), linenumform, LINE_COL, filerow+1, DEF_FG); gutterSize = editorGutterWidth(filerow+1); }
 						abAppend(ab, linenumbuf, linenumlen);
 					}
 					int screencols = E.screencols - gutterSize;
 
 					if (filerow > sel_sy && filerow < sel_ey) abAppend(ab, hl_bg, hl_bg_len); //If between the start/end automatically highlight everything
-					if (filerow == sel_ey && sel_sy != sel_ey && offset <= highlightendx) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
+					if (filerow == sel_ey && sel_sy != sel_ey && offset <= sel_ex) abAppend(ab, hl_bg, hl_bg_len); //If we are rendering the final row and we haven't gotten to the end of highlighting 
 					char* chars = E.row[filerow].chars;
 					int len = E.row[filerow].size - offset;
 					if (len < 0) len = 0;
@@ -157,7 +149,7 @@ void editorDrawRows(struct abuf* ab) {
 					int idx = E.coloff; //Index to the "full rendered" row
 					for (int j = 0; j < len; j++) {
 						int color = editorSyntaxToColor(hl[j]);
-						if (filerow == sel_sy && j + E.coloff == highlightstartx) {
+						if (filerow == sel_sy && j + offset == sel_sx) {
 							abAppend(ab, hl_bg, hl_bg_len);
 						}
 						if (color != current_color) {
@@ -186,12 +178,12 @@ void editorDrawRows(struct abuf* ab) {
 							idx++;
 						}
 						else { abAppend(ab, &chars[offset + j], 1); idx++; }
-						if (filerow == sel_ey && j < len-1 && j + offset == highlightendx) {
+						if (filerow == sel_ey && j < len-1 && j + offset == sel_ex) {
 							abAppend(ab,def_bg,def_bg_len);
 						}
 						if (idx - E.coloff >= screencols) break;
 					}
-					if (len == 0) abAppend(ab, &space, 1);
+					if (len == 0) abAppend(ab, " ", 1);
 				}
 			
 				abAppend(ab,def_fg,def_fg_len); //Sets default text color
